@@ -3,6 +3,7 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -52,7 +53,7 @@ function ProgressRing({ label, current, goal, unit }) {
   )
 }
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, unit }) {
   if (!active || !payload?.length) return null
 
   return (
@@ -60,9 +61,51 @@ function CustomTooltip({ active, payload, label }) {
       <p className="mb-1 font-medium text-slate-200">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
-          {entry.name}: {formatNumber(entry.value)}
+          {entry.name}: {formatNumber(entry.value)} {unit}
         </p>
       ))}
+    </div>
+  )
+}
+
+function MetricBarChart({ title, self, rewarded, goal, unit }) {
+  const selfValue = self ?? 0
+  const rewardedValue = rewarded ?? 0
+  const total = selfValue + rewardedValue
+  const yMax = Math.max(goal, total, 1)
+
+  const data = [{ name: title, Self: selfValue, Rewarded: rewardedValue }]
+
+  return (
+    <div className="min-w-0 flex-1">
+      <h4 className="mb-2 text-xs font-medium text-slate-400">
+        {title} · goal {formatNumber(goal)} {unit}
+      </h4>
+      <div className="h-44 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+            <YAxis
+              domain={[0, yMax]}
+              stroke="#94a3b8"
+              fontSize={12}
+              tickFormatter={formatNumber}
+              width={48}
+            />
+            <Tooltip content={<CustomTooltip unit={unit} />} />
+            <Legend wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
+            <ReferenceLine
+              y={goal}
+              stroke="#64748b"
+              strokeDasharray="4 4"
+              label={{ value: 'Goal', fill: '#94a3b8', fontSize: 11, position: 'insideTopRight' }}
+            />
+            <Bar dataKey="Self" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="Rewarded" stackId="a" fill="#eab308" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   )
 }
@@ -84,18 +127,6 @@ export default function Dashboard({ stats, loading }) {
     )
   }
 
-  const chartData = [
-    {
-      name: 'Steps',
-      Self: stats.self_steps ?? 0,
-      Rewarded: stats.received_steps ?? 0,
-    },
-    {
-      name: 'MVPA',
-      Self: stats.self_mvpa ?? 0,
-      Rewarded: stats.received_mvpa ?? 0,
-    },
-  ]
 
   return (
     <section className="card space-y-6">
@@ -128,19 +159,22 @@ export default function Dashboard({ stats, loading }) {
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-slate-300">Breakdown (stacked bar chart)</h3>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={formatNumber} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
-              <Bar dataKey="Self" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Rewarded" stackId="a" fill="#eab308" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">Breakdown (stacked bar charts)</h3>
+        <div className="flex flex-col gap-6 md:flex-row">
+          <MetricBarChart
+            title="Steps"
+            self={stats.self_steps}
+            rewarded={stats.received_steps}
+            goal={WEEKLY_GOALS.steps}
+            unit="steps"
+          />
+          <MetricBarChart
+            title="MVPA"
+            self={stats.self_mvpa}
+            rewarded={stats.received_mvpa}
+            goal={WEEKLY_GOALS.mvpaMinutes}
+            unit="min"
+          />
         </div>
         <div className="mt-2 flex gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
