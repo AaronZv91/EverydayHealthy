@@ -17,7 +17,7 @@ export default {
         },
       },
       animation: {
-        ticker: 'ticker 30s linear infinite',
+        ticker: 'ticker 22s linear infinite',
       },
       keyframes: {
         ticker: {

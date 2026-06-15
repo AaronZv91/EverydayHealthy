@@ -47,14 +47,14 @@ export default function HomePage({ user, onSignOut }) {
       <Ticker rewards={rewards} loading={rewardsLoading} />
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        <Dashboard stats={stats} loading={statsLoading} />
-
         <Leaderboard
           weeklyStats={weeklyStats}
           allTimeStats={allTimeStats}
           loading={leaderboardLoading}
           currentUserId={userId}
         />
+
+        <Dashboard stats={stats} loading={statsLoading} />
 
         <RewardForm
           profiles={profiles}
