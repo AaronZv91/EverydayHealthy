@@ -194,10 +194,6 @@ function ScrollingTicker({ rewards, onOpen }) {
           ))}
         </div>
       </div>
-
-      <p className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium uppercase tracking-wider text-amber-400/50">
-        Scroll · auto-roll · tap to view
-      </p>
     </div>
   )
 }
