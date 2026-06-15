@@ -35,3 +35,13 @@ export function formatRewardMessage(reward, senderName, receiverName) {
   const detail = parts.length ? ` (${parts.join(', ')})` : ''
   return `${senderName} ${reward.emoji} rewarded ${receiverName} "${reward.item_name}"${detail}`
 }
+
+export function formatDateTime(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
