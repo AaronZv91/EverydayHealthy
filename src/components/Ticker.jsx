@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { formatDateTime, formatNumber } from '../lib/weekUtils'
+
+const AUTO_SCROLL_SPEED = 1.2
+const PAUSE_MS = 4000
+const DRAG_THRESHOLD = 6
 
 function RewardDetails({ reward, compact = false }) {
   const sender = reward.sender?.display_name ?? 'Unknown'
@@ -106,34 +110,121 @@ function RewardsModal({ rewards, onClose }) {
   )
 }
 
-function TickerShell({ children, onClick, clickable }) {
-  return (
-    <div
-      className={`relative overflow-hidden border-y-2 border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 shadow-[0_4px_24px_rgba(251,191,36,0.15)] ${
-        clickable ? 'cursor-pointer transition hover:border-amber-300/80 hover:shadow-amber-500/20' : ''
-      }`}
-      onClick={clickable ? onClick : undefined}
-      onKeyDown={
-        clickable
-          ? (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onClick()
-              }
-            }
-          : undefined
+function ScrollingTicker({ rewards, onOpen }) {
+  const scrollRef = useRef(null)
+  const pausedRef = useRef(false)
+  const pauseTimerRef = useRef(null)
+  const dragRef = useRef({ active: false, startX: 0, startScroll: 0, moved: false })
+
+  const pauseAutoScroll = useCallback((ms = PAUSE_MS) => {
+    pausedRef.current = true
+    clearTimeout(pauseTimerRef.current)
+    pauseTimerRef.current = setTimeout(() => {
+      pausedRef.current = false
+    }, ms)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    let rafId
+    const tick = () => {
+      if (!pausedRef.current && !dragRef.current.active) {
+        el.scrollLeft += AUTO_SCROLL_SPEED
+        if (el.scrollWidth > 0 && el.scrollLeft >= el.scrollWidth / 2) {
+          el.scrollLeft = 0
+        }
       }
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      aria-label={clickable ? 'Open recent rewards feed' : undefined}
-    >
+      rafId = requestAnimationFrame(tick)
+    }
+
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      clearTimeout(pauseTimerRef.current)
+    }
+  }, [rewards])
+
+  function handlePointerDown(e) {
+    const el = scrollRef.current
+    if (!el) return
+
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      moved: false,
+    }
+    el.setPointerCapture(e.pointerId)
+    pauseAutoScroll(PAUSE_MS * 2)
+  }
+
+  function handlePointerMove(e) {
+    if (!dragRef.current.active) return
+
+    const el = scrollRef.current
+    if (!el) return
+
+    const dx = e.clientX - dragRef.current.startX
+    if (Math.abs(dx) > DRAG_THRESHOLD) {
+      dragRef.current.moved = true
+    }
+
+    el.scrollLeft = dragRef.current.startScroll - dx
+  }
+
+  function handlePointerUp(e) {
+    if (!dragRef.current.active) return
+
+    const { moved } = dragRef.current
+    dragRef.current.active = false
+    scrollRef.current?.releasePointerCapture(e.pointerId)
+
+    if (moved) {
+      pauseAutoScroll()
+    } else {
+      onOpen()
+    }
+  }
+
+  const tickerContent = [...rewards, ...rewards]
+
+  return (
+    <div className="relative min-h-[3.75rem]">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-slate-900 to-transparent sm:w-16" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-slate-900 to-transparent sm:w-16" />
+
+      <div
+        ref={scrollRef}
+        className="ticker-scroll cursor-grab overflow-x-auto py-3 active:cursor-grabbing"
+        onScroll={() => pauseAutoScroll()}
+        onWheel={() => pauseAutoScroll()}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        aria-label="Rewards ticker — scroll horizontally or tap to view all"
+      >
+        <div className="flex w-max items-center">
+          {tickerContent.map((reward, i) => (
+            <RewardDetails key={`${reward.id}-${i}`} reward={reward} compact />
+          ))}
+        </div>
+      </div>
+
+      <p className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium uppercase tracking-wider text-amber-400/50">
+        Scroll · tap to view
+      </p>
+    </div>
+  )
+}
+
+function TickerShell({ children }) {
+  return (
+    <div className="relative overflow-hidden border-y-2 border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 shadow-[0_4px_24px_rgba(251,191,36,0.15)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(251,191,36,0.12)_0%,_transparent_60%)]" />
-      <div className="relative min-h-[3.75rem] overflow-hidden">{children}</div>
-      {clickable && (
-        <p className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium uppercase tracking-wider text-amber-400/50">
-          Tap to view
-        </p>
-      )}
+      {children}
     </div>
   )
 }
@@ -144,7 +235,7 @@ export default function Ticker({ rewards, loading }) {
   if (loading) {
     return (
       <TickerShell>
-        <p className="flex h-full items-center justify-center py-4 text-sm font-medium text-amber-200/70">
+        <p className="flex min-h-[3.75rem] items-center justify-center py-4 text-sm font-medium text-amber-200/70">
           Loading rewards feed…
         </p>
       </TickerShell>
@@ -154,26 +245,17 @@ export default function Ticker({ rewards, loading }) {
   if (!rewards.length) {
     return (
       <TickerShell>
-        <p className="flex h-full items-center justify-center py-4 text-sm font-medium text-amber-200/80">
+        <p className="flex min-h-[3.75rem] items-center justify-center py-4 text-sm font-medium text-amber-200/80">
           No rewards yet — be the first to send one! 🎁
         </p>
       </TickerShell>
     )
   }
 
-  const tickerContent = [...rewards, ...rewards]
-
   return (
     <>
-      <TickerShell clickable onClick={() => setOpen(true)}>
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-slate-900 to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-slate-900 to-transparent" />
-
-        <div className="flex animate-ticker items-center py-3">
-          {tickerContent.map((reward, i) => (
-            <RewardDetails key={`${reward.id}-${i}`} reward={reward} compact />
-          ))}
-        </div>
+      <TickerShell>
+        <ScrollingTicker rewards={rewards} onOpen={() => setOpen(true)} />
       </TickerShell>
 
       {open && <RewardsModal rewards={rewards} onClose={() => setOpen(false)} />}

@@ -24,4 +24,27 @@
   .btn-secondary {
     @apply inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50;
   }
+
+  .ticker-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(251, 191, 36, 0.45) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ticker-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .ticker-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .ticker-scroll::-webkit-scrollbar-thumb {
+    background: rgba(251, 191, 36, 0.45);
+    border-radius: 9999px;
+  }
+
+  .ticker-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(251, 191, 36, 0.65);
+  }
 }
