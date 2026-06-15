@@ -1,0 +1,216 @@
+import { useState } from 'react'
+import { WEEKLY_GOALS } from '../lib/supabaseClient'
+import { formatNumber } from '../lib/weekUtils'
+
+function StackedHorizontalBar({ label, self, donated, scaleMax, goal }) {
+  const total = self + donated
+  const barWidthPct = scaleMax > 0 ? Math.min(100, (total / scaleMax) * 100) : 0
+  const selfPctOfBar = total > 0 ? (self / total) * 100 : 0
+  const donatedPctOfBar = total > 0 ? (donated / total) * 100 : 0
+  const goalPct = goal && scaleMax > 0 ? Math.min(100, (goal / scaleMax) * 100) : null
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-slate-400">{label}</span>
+        <span className="tabular-nums text-slate-500">
+          {formatNumber(total)}
+          {goal ? ` / ${formatNumber(goal)}` : ''}
+        </span>
+      </div>
+      <div className="relative h-3 overflow-hidden rounded-full bg-slate-800">
+        {goalPct != null && goalPct <= 100 && (
+          <div
+            className="absolute inset-y-0 z-10 border-r border-dashed border-slate-500/70"
+            style={{ left: `${goalPct}%` }}
+            title={`Goal: ${formatNumber(goal)}`}
+          />
+        )}
+        {total > 0 && (
+          <div className="flex h-full min-w-0" style={{ width: `${barWidthPct}%` }}>
+            {self > 0 && (
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${selfPctOfBar}%` }}
+                title={`Self: ${formatNumber(self)}`}
+              />
+            )}
+            {donated > 0 && (
+              <div
+                className="h-full bg-reward-500"
+                style={{ width: `${donatedPctOfBar}%` }}
+                title={`Donated: ${formatNumber(donated)}`}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ChallengeRow({ rank, user, scaleSteps, scaleMvpa, goalSteps, goalMvpa, isCurrentUser }) {
+  return (
+    <li
+      className={`rounded-xl border px-3 py-3 ${
+        isCurrentUser
+          ? 'border-emerald-500/40 bg-emerald-950/20'
+          : 'border-slate-800 bg-slate-800/40'
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            rank === 1
+              ? 'bg-reward-500 text-slate-900'
+              : rank === 2
+                ? 'bg-slate-500 text-white'
+                : rank === 3
+                  ? 'bg-amber-800 text-white'
+                  : 'bg-slate-700 text-slate-300'
+          }`}
+        >
+          {rank}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-slate-100">
+            {user.display_name}
+            {isCurrentUser && (
+              <span className="ml-2 text-xs font-normal text-emerald-400">(you)</span>
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <StackedHorizontalBar
+          label="Steps"
+          self={user.self_steps ?? 0}
+          donated={user.received_steps ?? 0}
+          scaleMax={scaleSteps}
+          goal={goalSteps}
+        />
+        <StackedHorizontalBar
+          label="MVPA (min)"
+          self={user.self_mvpa ?? 0}
+          donated={user.received_mvpa ?? 0}
+          scaleMax={scaleMvpa}
+          goal={goalMvpa}
+        />
+      </div>
+    </li>
+  )
+}
+
+function ChallengeList({ users, mode, currentUserId }) {
+  if (users.length === 0) {
+    return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
+  }
+
+  const maxTotalSteps = Math.max(...users.map((u) => u.total_steps ?? 0), 1)
+  const maxTotalMvpa = Math.max(...users.map((u) => u.total_mvpa ?? 0), 1)
+
+  const scaleSteps =
+    mode === 'weekly' ? Math.max(WEEKLY_GOALS.steps, maxTotalSteps) : maxTotalSteps
+  const scaleMvpa =
+    mode === 'weekly' ? Math.max(WEEKLY_GOALS.mvpaMinutes, maxTotalMvpa) : maxTotalMvpa
+
+  const goalSteps = mode === 'weekly' ? WEEKLY_GOALS.steps : null
+  const goalMvpa = mode === 'weekly' ? WEEKLY_GOALS.mvpaMinutes : null
+
+  return (
+    <ol className="space-y-3">
+      {users.map((user, index) => (
+        <ChallengeRow
+          key={user.user_id}
+          rank={index + 1}
+          user={user}
+          scaleSteps={scaleSteps}
+          scaleMvpa={scaleMvpa}
+          goalSteps={goalSteps}
+          goalMvpa={goalMvpa}
+          isCurrentUser={user.user_id === currentUserId}
+        />
+      ))}
+    </ol>
+  )
+}
+
+export default function Leaderboard({
+  weeklyStats,
+  allTimeStats,
+  loading,
+  currentUserId,
+}) {
+  const [mode, setMode] = useState('weekly')
+  const users = mode === 'weekly' ? weeklyStats : allTimeStats
+
+  if (loading) {
+    return (
+      <section className="card">
+        <p className="text-center text-slate-400">Loading leaderboard…</p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="card flex flex-col">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-white">Challenge Leaderboard</h2>
+          <p className="mt-0.5 text-sm text-slate-400">
+            {mode === 'weekly'
+              ? 'Resets every Monday · goal 70,000 steps & 200 min MVPA'
+              : 'All-time totals across every week'}
+          </p>
+        </div>
+
+        <div className="flex rounded-xl bg-slate-800 p-1">
+          <button
+            type="button"
+            onClick={() => setMode('weekly')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              mode === 'weekly'
+                ? 'bg-brand-600 text-white'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('alltime')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              mode === 'alltime'
+                ? 'bg-brand-600 text-white'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            All-time
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-4 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+          Self contributed
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
+          Donated (received)
+        </span>
+        {mode === 'weekly' && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 border-r border-dashed border-slate-500 pr-1" />
+            Weekly goal
+          </span>
+        )}
+      </div>
+
+      <div className="-mr-1 max-h-[32rem] overflow-y-auto pr-1">
+        <ChallengeList users={users} mode={mode} currentUserId={currentUserId} />
+      </div>
+    </section>
+  )
+}
