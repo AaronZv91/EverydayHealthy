@@ -30,7 +30,7 @@ export default function HomePage({ user, onSignOut }) {
             </span>
             <div>
               <h1 className="text-lg font-bold text-white">EverydayHealthy</h1>
-              <p className="text-xs text-slate-400">健康打賞 · 每週目標追蹤</p>
+              <p className="text-xs text-slate-400">Health rewards · weekly goals</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -38,7 +38,7 @@ export default function HomePage({ user, onSignOut }) {
               {user?.email}
             </span>
             <button type="button" className="btn-secondary" onClick={onSignOut}>
-              登出
+              Sign out
             </button>
           </div>
         </div>
@@ -56,17 +56,16 @@ export default function HomePage({ user, onSignOut }) {
           currentUserId={userId}
         />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ActivityForm onSubmit={logActivity} onSuccess={handleRefresh} />
-          <RewardForm
-            profiles={profiles}
-            currentUserId={userId}
-            availableSteps={stats?.available_steps ?? 0}
-            availableMvpa={stats?.available_mvpa ?? 0}
-            onSubmit={sendReward}
-            onSuccess={handleRefresh}
-          />
-        </div>
+        <RewardForm
+          profiles={profiles}
+          currentUserId={userId}
+          availableSteps={stats?.available_steps ?? 0}
+          availableMvpa={stats?.available_mvpa ?? 0}
+          onSubmit={sendReward}
+          onSuccess={handleRefresh}
+        />
+
+        <ActivityForm onSubmit={logActivity} onSuccess={handleRefresh} />
       </main>
     </div>
   )

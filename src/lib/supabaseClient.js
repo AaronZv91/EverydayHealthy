@@ -27,25 +27,25 @@ export const WEEKLY_GOALS = {
 }
 
 export const REWARD_ERROR_MESSAGES = {
-  NOT_AUTHENTICATED: '請先登入',
-  RECEIVER_REQUIRED: '請選擇打賞對象',
-  CANNOT_REWARD_SELF: '不能打賞自己',
-  REWARD_AMOUNT_REQUIRED: '請輸入步數或 MVPA 分鐘',
-  RECEIVER_NOT_FOUND: '找不到該用戶',
-  INSUFFICIENT_STEPS_QUOTA: '步數額度不足',
-  INSUFFICIENT_MVPA_QUOTA: 'MVPA 額度不足',
-  ACTIVITY_AMOUNT_REQUIRED: '請輸入步數或 MVPA 分鐘',
-  SUPABASE_NOT_CONFIGURED: '請先設定 Supabase 環境變數',
+  NOT_AUTHENTICATED: 'Please sign in first',
+  RECEIVER_REQUIRED: 'Please select a recipient',
+  CANNOT_REWARD_SELF: 'You cannot reward yourself',
+  REWARD_AMOUNT_REQUIRED: 'Enter steps or MVPA minutes',
+  RECEIVER_NOT_FOUND: 'Recipient not found',
+  INSUFFICIENT_STEPS_QUOTA: 'Not enough steps quota',
+  INSUFFICIENT_MVPA_QUOTA: 'Not enough MVPA quota',
+  ACTIVITY_AMOUNT_REQUIRED: 'Enter steps or MVPA minutes',
+  SUPABASE_NOT_CONFIGURED: 'Please configure Supabase environment variables',
 }
 
 export function parseSupabaseError(error) {
-  if (!error?.message) return '發生未知錯誤'
+  if (!error?.message) return 'An unknown error occurred'
 
   const msg = error.message
   for (const [code, label] of Object.entries(REWARD_ERROR_MESSAGES)) {
     if (msg.includes(code)) {
       const match = msg.match(/:(\d+)$/)
-      if (match) return `${label}（可用：${match[1]}）`
+      if (match) return `${label} (available: ${match[1]})`
       return label
     }
   }
@@ -53,18 +53,18 @@ export function parseSupabaseError(error) {
 }
 
 const AUTH_ERROR_MESSAGES = {
-  invalid_credentials: '帳號或密碼錯誤。若尚未註冊請先按「註冊」。',
-  email_not_confirmed: '帳號尚未啟用，請聯絡管理員或重新註冊。',
-  user_already_registered: '此 Email 已註冊，請直接登入。',
-  email_address_invalid: 'Email 格式無效，請確認是否輸入正確。',
-  weak_password: '密碼強度不足，請至少使用 6 個字元。',
-  signup_disabled: '目前暫停新用戶註冊。',
-  over_email_send_rate_limit: '寄信太頻繁，請稍後再試。',
-  over_request_rate_limit: '請求太頻繁，請稍後再試。',
+  invalid_credentials: 'Invalid email or password. Sign up first if you do not have an account.',
+  email_not_confirmed: 'Account not activated. Contact an admin or sign up again.',
+  user_already_registered: 'This email is already registered. Please sign in.',
+  email_address_invalid: 'Invalid email address.',
+  weak_password: 'Password is too weak. Use at least 6 characters.',
+  signup_disabled: 'New sign-ups are currently disabled.',
+  over_email_send_rate_limit: 'Too many emails sent. Please try again later.',
+  over_request_rate_limit: 'Too many requests. Please try again later.',
 }
 
 export function formatAuthError(error) {
-  if (!error) return '操作失敗'
+  if (!error) return 'Something went wrong'
 
   const code = error.code ?? error.error_code ?? ''
   if (AUTH_ERROR_MESSAGES[code]) return AUTH_ERROR_MESSAGES[code]
@@ -77,7 +77,7 @@ export function formatAuthError(error) {
     return AUTH_ERROR_MESSAGES.email_not_confirmed
   }
 
-  return error.message || '操作失敗'
+  return error.message || 'Something went wrong'
 }
 
 export function requireSupabase() {

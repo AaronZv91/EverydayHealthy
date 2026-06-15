@@ -14,7 +14,7 @@ export default function App() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-slate-400">載入中…</p>
+        <p className="text-slate-400">Loading…</p>
       </div>
     )
   }

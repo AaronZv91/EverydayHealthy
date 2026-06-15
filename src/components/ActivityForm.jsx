@@ -12,7 +12,7 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
     setError('')
 
     if (!Number(steps) && !Number(mvpaMinutes)) {
-      setError('請至少輸入步數或 MVPA 分鐘')
+      setError('Enter steps or MVPA minutes')
       return
     }
 
@@ -24,7 +24,7 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
       setNote('')
       onSuccess?.()
     } catch (err) {
-      setError(err.message ?? '記錄失敗')
+      setError(err.message ?? 'Failed to log activity')
     } finally {
       setLoading(false)
     }
@@ -33,14 +33,14 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
   return (
     <section className="card">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-white">記錄運動</h2>
-        <p className="mt-1 text-sm text-slate-400">記錄後才能獲得打賞額度</p>
+        <h2 className="text-xl font-bold text-white">Log Activity</h2>
+        <p className="mt-1 text-sm text-slate-400">Log exercise to earn reward quota</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-sm text-slate-300">步數</label>
+            <label className="mb-1.5 block text-sm text-slate-300">Steps</label>
             <input
               className="input"
               type="number"
@@ -51,7 +51,7 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm text-slate-300">MVPA 分鐘</label>
+            <label className="mb-1.5 block text-sm text-slate-300">MVPA (min)</label>
             <input
               className="input"
               type="number"
@@ -64,10 +64,10 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm text-slate-300">備註（選填）</label>
+          <label className="mb-1.5 block text-sm text-slate-300">Note (optional)</label>
           <input
             className="input"
-            placeholder="例如：公園慢跑"
+            placeholder="e.g. Park jog"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength={100}
@@ -79,7 +79,7 @@ export default function ActivityForm({ onSubmit, onSuccess }) {
         )}
 
         <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? '儲存中…' : '新增 Activity'}
+          {loading ? 'Saving…' : 'Log Activity'}
         </button>
       </form>
     </section>

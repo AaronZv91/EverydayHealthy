@@ -29,19 +29,19 @@ export default function RewardForm({
     setError('')
 
     if (!receiverId) {
-      setError('請選擇打賞對象')
+      setError('Please select someone to reward')
       return
     }
     if (!isValidRewardEmoji(emoji)) {
-      setError('請輸入一個 Emoji（可用鍵盤 Emoji 選字，例如 Mac：Ctrl + Cmd + Space）')
+      setError('Enter one keyboard emoji (Mac: Ctrl + Cmd + Space)')
       return
     }
     if (!itemName.trim()) {
-      setError('請輸入物件名稱')
+      setError('Please enter a reward name')
       return
     }
     if (!Number(steps) && !Number(mvpaMinutes)) {
-      setError('請至少輸入步數或 MVPA 分鐘')
+      setError('Enter steps or MVPA minutes')
       return
     }
 
@@ -61,72 +61,92 @@ export default function RewardForm({
       setEmoji('')
       onSuccess?.()
     } catch (err) {
-      setError(err.message ?? '打賞失敗')
+      setError(err.message ?? 'Reward failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <section className="card">
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-white">打賞</h2>
-        <p className="mt-1 text-sm text-slate-400">
-          可用額度：{formatNumber(availableSteps)} 步 · {formatNumber(availableMvpa)} 分 MVPA
-        </p>
-      </div>
+    <section className="relative overflow-hidden rounded-3xl border-2 border-amber-400/60 bg-gradient-to-br from-amber-950/80 via-slate-900 to-yellow-950/50 p-6 shadow-2xl shadow-amber-900/30 ring-1 ring-amber-400/20 sm:p-8">
+      <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-amber-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-yellow-500/10 blur-3xl" />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="relative mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <label className="mb-1.5 block text-sm text-slate-300">打賞對象</label>
-          <select
-            className="input"
-            value={receiverId}
-            onChange={(e) => setReceiverId(e.target.value)}
-          >
-            <option value="">選擇用戶…</option>
-            {recipients.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.display_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm text-slate-300">Emoji</label>
-          <input
-            className="input text-center text-3xl leading-none"
-            value={emoji}
-            onChange={handleEmojiChange}
-            placeholder="🎉"
-            inputMode="text"
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={32}
-            aria-label="Reward emoji"
-          />
-          <p className="mt-1.5 text-xs text-slate-500">
-            手動輸入一個鍵盤 Emoji，不支援文字或自訂圖片
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">
+            <span>🎁</span>
+            Send a Reward
+          </div>
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">Reward Someone</h2>
+          <p className="mt-2 text-sm text-amber-100/70 sm:text-base">
+            Share your earned quota with teammates
           </p>
         </div>
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-3 text-right">
+          <p className="text-xs font-medium uppercase tracking-wide text-amber-200/80">
+            Available quota
+          </p>
+          <p className="text-lg font-bold text-amber-300 sm:text-xl">
+            {formatNumber(availableSteps)} steps
+          </p>
+          <p className="text-lg font-bold text-yellow-300 sm:text-xl">
+            {formatNumber(availableMvpa)} min MVPA
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="relative space-y-5">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-amber-100">Recipient</label>
+            <select
+              className="input border-amber-400/30 bg-slate-900/80 py-3 text-base focus:border-amber-400 focus:ring-amber-400/30"
+              value={receiverId}
+              onChange={(e) => setReceiverId(e.target.value)}
+            >
+              <option value="">Choose a user…</option>
+              {recipients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-amber-100">Emoji</label>
+            <input
+              className="input border-amber-400/30 bg-slate-900/80 py-3 text-center text-4xl leading-none focus:border-amber-400 focus:ring-amber-400/30"
+              value={emoji}
+              onChange={handleEmojiChange}
+              placeholder="🎉"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={32}
+              aria-label="Reward emoji"
+            />
+            <p className="mt-1.5 text-xs text-amber-200/50">One keyboard emoji only</p>
+          </div>
+        </div>
 
         <div>
-          <label className="mb-1.5 block text-sm text-slate-300">物件名稱</label>
+          <label className="mb-2 block text-sm font-semibold text-amber-100">Reward name</label>
           <input
-            className="input"
-            placeholder="例如：晨跑加油、週末徒步"
+            className="input border-amber-400/30 bg-slate-900/80 py-3 text-base focus:border-amber-400 focus:ring-amber-400/30"
+            placeholder="e.g. Morning run cheer, Weekend hike"
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
             maxLength={50}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:max-w-xl">
           <div>
-            <label className="mb-1.5 block text-sm text-slate-300">步數</label>
+            <label className="mb-2 block text-sm font-semibold text-amber-100">Steps</label>
             <input
-              className="input"
+              className="input border-amber-400/30 bg-slate-900/80 py-3 text-lg font-semibold focus:border-amber-400 focus:ring-amber-400/30"
               type="number"
               min="0"
               placeholder="0"
@@ -135,9 +155,9 @@ export default function RewardForm({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm text-slate-300">MVPA 分鐘</label>
+            <label className="mb-2 block text-sm font-semibold text-amber-100">MVPA (min)</label>
             <input
-              className="input"
+              className="input border-amber-400/30 bg-slate-900/80 py-3 text-lg font-semibold focus:border-amber-400 focus:ring-amber-400/30"
               type="number"
               min="0"
               placeholder="0"
@@ -148,11 +168,17 @@ export default function RewardForm({
         </div>
 
         {error && (
-          <p className="rounded-lg bg-red-950/50 px-3 py-2 text-sm text-red-400">{error}</p>
+          <p className="rounded-xl border border-red-500/30 bg-red-950/60 px-4 py-3 text-sm text-red-300">
+            {error}
+          </p>
         )}
 
-        <button type="submit" className="btn-primary w-full" disabled={loading}>
-          {loading ? '處理中…' : emoji ? `${emoji} 送出打賞` : '送出打賞'}
+        <button
+          type="submit"
+          className="w-full rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-6 py-4 text-lg font-bold text-slate-900 shadow-lg shadow-amber-500/30 transition hover:from-amber-300 hover:via-yellow-300 hover:to-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={loading}
+        >
+          {loading ? 'Sending…' : emoji ? `${emoji} Send Reward` : 'Send Reward'}
         </button>
       </form>
     </section>

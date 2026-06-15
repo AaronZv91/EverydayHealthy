@@ -60,7 +60,7 @@ function CustomTooltip({ active, payload, label }) {
       <p className="mb-1 font-medium text-slate-200">{label}</p>
       {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
-          {entry.name}：{formatNumber(entry.value)}
+          {entry.name}: {formatNumber(entry.value)}
         </p>
       ))}
     </div>
@@ -71,7 +71,7 @@ export default function Dashboard({ stats, loading }) {
   if (loading) {
     return (
       <section className="card">
-        <p className="text-center text-slate-400">載入進度中…</p>
+        <p className="text-center text-slate-400">Loading progress…</p>
       </section>
     )
   }
@@ -79,21 +79,21 @@ export default function Dashboard({ stats, loading }) {
   if (!stats) {
     return (
       <section className="card">
-        <p className="text-center text-slate-400">尚無數據</p>
+        <p className="text-center text-slate-400">No data yet</p>
       </section>
     )
   }
 
   const chartData = [
     {
-      name: '步數',
-      自己跑的: stats.self_steps ?? 0,
-      被打賞的: stats.received_steps ?? 0,
+      name: 'Steps',
+      Self: stats.self_steps ?? 0,
+      Rewarded: stats.received_steps ?? 0,
     },
     {
       name: 'MVPA',
-      自己跑的: stats.self_mvpa ?? 0,
-      被打賞的: stats.received_mvpa ?? 0,
+      Self: stats.self_mvpa ?? 0,
+      Rewarded: stats.received_mvpa ?? 0,
     },
   ]
 
@@ -101,34 +101,34 @@ export default function Dashboard({ stats, loading }) {
     <section className="card space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-white">本週進度</h2>
+          <h2 className="text-xl font-bold text-white">This Week&apos;s Progress</h2>
           <p className="text-sm text-slate-400">{formatWeekRange()}</p>
         </div>
         <div className="rounded-xl bg-slate-800/80 px-4 py-2 text-right text-sm">
-          <p className="text-slate-400">可用額度</p>
+          <p className="text-slate-400">Available quota</p>
           <p className="font-semibold text-brand-500">
-            {formatNumber(stats.available_steps)} 步 · {formatNumber(stats.available_mvpa)} 分 MVPA
+            {formatNumber(stats.available_steps)} steps · {formatNumber(stats.available_mvpa)} min MVPA
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap justify-around gap-6">
         <ProgressRing
-          label="步數目標"
+          label="Steps goal"
           current={stats.total_steps}
           goal={WEEKLY_GOALS.steps}
-          unit="步"
+          unit="steps"
         />
         <ProgressRing
-          label="MVPA 目標"
+          label="MVPA goal"
           current={stats.total_mvpa}
           goal={WEEKLY_GOALS.mvpaMinutes}
-          unit="分"
+          unit="min"
         />
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-slate-300">數據組成（堆疊長條圖）</h3>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">Breakdown (stacked bar chart)</h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -137,19 +137,19 @@ export default function Dashboard({ stats, loading }) {
               <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={formatNumber} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12, color: '#cbd5e1' }} />
-              <Bar dataKey="自己跑的" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="被打賞的" stackId="a" fill="#eab308" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Self" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Rewarded" stackId="a" fill="#eab308" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="mt-2 flex gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-500" />
-            青色：自己跑的
+            Cyan: self earned
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
-            黃色：被打賞的
+            Yellow: received rewards
           </span>
         </div>
       </div>

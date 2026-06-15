@@ -13,13 +13,13 @@ export function formatWeekRange(date = new Date()) {
   end.setDate(end.getDate() + 6)
 
   const fmt = (d) =>
-    d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' })
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   return `${fmt(start)} – ${fmt(end)}`
 }
 
 export function formatNumber(n) {
-  return new Intl.NumberFormat('zh-TW').format(n ?? 0)
+  return new Intl.NumberFormat('en-US').format(n ?? 0)
 }
 
 export function formatPercent(current, goal) {
@@ -29,8 +29,9 @@ export function formatPercent(current, goal) {
 
 export function formatRewardMessage(reward, senderName, receiverName) {
   const parts = []
-  if (reward.steps > 0) parts.push(`${formatNumber(reward.steps)} 步`)
-  if (reward.mvpa_minutes > 0) parts.push(`${formatNumber(reward.mvpa_minutes)} 分 MVPA`)
+  if (reward.steps > 0) parts.push(`${formatNumber(reward.steps)} steps`)
+  if (reward.mvpa_minutes > 0) parts.push(`${formatNumber(reward.mvpa_minutes)} min MVPA`)
 
-  return `${senderName} ${reward.emoji} 打賞 ${receiverName}「${reward.item_name}」${parts.length ? `（${parts.join('、')}）` : ''}`
+  const detail = parts.length ? ` (${parts.join(', ')})` : ''
+  return `${senderName} ${reward.emoji} rewarded ${receiverName} "${reward.item_name}"${detail}`
 }

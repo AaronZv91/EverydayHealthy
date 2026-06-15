@@ -37,7 +37,7 @@ export function useAuth() {
   }, [])
 
   const signIn = useCallback(async (email, password) => {
-    if (!supabase) throw new Error('請先設定 Supabase 環境變數')
+    if (!supabase) throw new Error('Please configure Supabase environment variables')
 
     const normalizedEmail = normalizeEmail(email)
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -53,7 +53,7 @@ export function useAuth() {
   }, [])
 
   const signUp = useCallback(async (email, password, displayName) => {
-    if (!supabase) throw new Error('請先設定 Supabase 環境變數')
+    if (!supabase) throw new Error('Please configure Supabase environment variables')
 
     const normalizedEmail = normalizeEmail(email)
     const { data, error } = await supabase.auth.signUp({

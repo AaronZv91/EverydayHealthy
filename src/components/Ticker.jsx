@@ -4,7 +4,7 @@ export default function Ticker({ rewards, loading }) {
   if (loading) {
     return (
       <div className="overflow-hidden border-b border-slate-800 bg-slate-900/90 py-2.5">
-        <p className="text-center text-sm text-slate-500">載入打賞動態…</p>
+        <p className="text-center text-sm text-slate-500">Loading rewards feed…</p>
       </div>
     )
   }
@@ -12,13 +12,15 @@ export default function Ticker({ rewards, loading }) {
   if (!rewards.length) {
     return (
       <div className="overflow-hidden border-b border-slate-800 bg-slate-900/90 py-2.5">
-        <p className="text-center text-sm text-slate-500">尚無打賞紀錄，成為第一個打賞的人吧！</p>
+        <p className="text-center text-sm text-slate-500">
+          No rewards yet — be the first to send one!
+        </p>
       </div>
     )
   }
 
   const messages = rewards.map((r) =>
-    formatRewardMessage(r, r.sender?.display_name ?? '未知', r.receiver?.display_name ?? '未知')
+    formatRewardMessage(r, r.sender?.display_name ?? 'Unknown', r.receiver?.display_name ?? 'Unknown')
   )
 
   const tickerContent = [...messages, ...messages]

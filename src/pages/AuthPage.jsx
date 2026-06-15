@@ -22,7 +22,7 @@ export default function AuthPage({ onSignIn, onSignUp }) {
         await onSignIn(email, password)
       }
     } catch (err) {
-      setError(err.message ?? '操作失敗')
+      setError(err.message ?? 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -36,16 +36,16 @@ export default function AuthPage({ onSignIn, onSignUp }) {
             🏃
           </div>
           <h1 className="text-2xl font-bold text-white">EverydayHealthy</h1>
-          <p className="mt-1 text-sm text-slate-400">每週 70,000 步 · 200 分鐘 MVPA</p>
+          <p className="mt-1 text-sm text-slate-400">70,000 steps · 200 min MVPA per week</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
             <div>
-              <label className="mb-1.5 block text-sm text-slate-300">顯示名稱</label>
+              <label className="mb-1.5 block text-sm text-slate-300">Display name</label>
               <input
                 className="input"
-                placeholder="你的暱稱"
+                placeholder="Your nickname"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
               />
@@ -65,13 +65,13 @@ export default function AuthPage({ onSignIn, onSignUp }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-slate-300">密碼</label>
+            <label className="mb-1.5 block text-sm text-slate-300">Password</label>
             <input
               className="input"
               type="password"
               required
               minLength={6}
-              placeholder="至少 6 個字元"
+              placeholder="At least 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -85,12 +85,12 @@ export default function AuthPage({ onSignIn, onSignUp }) {
           )}
 
           <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? '處理中…' : mode === 'signup' ? '註冊' : '登入'}
+            {loading ? 'Please wait…' : mode === 'signup' ? 'Sign up' : 'Sign in'}
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-slate-400">
-          {mode === 'signup' ? '已有帳號？' : '還沒有帳號？'}{' '}
+          {mode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
           <button
             type="button"
             className="font-medium text-brand-500 hover:text-brand-400"
@@ -100,7 +100,7 @@ export default function AuthPage({ onSignIn, onSignUp }) {
               setMessage('')
             }}
           >
-            {mode === 'signup' ? '登入' : '註冊'}
+            {mode === 'signup' ? 'Sign in' : 'Sign up'}
           </button>
         </p>
       </div>
