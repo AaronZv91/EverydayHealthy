@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDateTime, formatNumber } from '../lib/weekUtils'
 
 const AUTO_SCROLL_SPEED = 1.2
-const PAUSE_MS = 4000
 const DRAG_THRESHOLD = 6
 
 function RewardDetails({ reward, compact = false }) {
@@ -112,17 +111,7 @@ function RewardsModal({ rewards, onClose }) {
 
 function ScrollingTicker({ rewards, onOpen }) {
   const scrollRef = useRef(null)
-  const pausedRef = useRef(false)
-  const pauseTimerRef = useRef(null)
-  const dragRef = useRef({ active: false, startX: 0, startScroll: 0, moved: false })
-
-  const pauseAutoScroll = useCallback((ms = PAUSE_MS) => {
-    pausedRef.current = true
-    clearTimeout(pauseTimerRef.current)
-    pauseTimerRef.current = setTimeout(() => {
-      pausedRef.current = false
-    }, ms)
-  }, [])
+  const dragRef = useRef({ active: false, lastX: 0, startX: 0, moved: false })
 
   useEffect(() => {
     const el = scrollRef.current
@@ -130,34 +119,23 @@ function ScrollingTicker({ rewards, onOpen }) {
 
     let rafId
     const tick = () => {
-      if (!pausedRef.current && !dragRef.current.active) {
-        el.scrollLeft += AUTO_SCROLL_SPEED
-        if (el.scrollWidth > 0 && el.scrollLeft >= el.scrollWidth / 2) {
-          el.scrollLeft = 0
-        }
+      el.scrollLeft += AUTO_SCROLL_SPEED
+      if (el.scrollWidth > 0 && el.scrollLeft >= el.scrollWidth / 2) {
+        el.scrollLeft -= el.scrollWidth / 2
       }
       rafId = requestAnimationFrame(tick)
     }
 
     rafId = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(rafId)
-      clearTimeout(pauseTimerRef.current)
-    }
+    return () => cancelAnimationFrame(rafId)
   }, [rewards])
 
   function handlePointerDown(e) {
     const el = scrollRef.current
     if (!el) return
 
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startScroll: el.scrollLeft,
-      moved: false,
-    }
+    dragRef.current = { active: true, lastX: e.clientX, startX: e.clientX, moved: false }
     el.setPointerCapture(e.pointerId)
-    pauseAutoScroll(PAUSE_MS * 2)
   }
 
   function handlePointerMove(e) {
@@ -166,12 +144,20 @@ function ScrollingTicker({ rewards, onOpen }) {
     const el = scrollRef.current
     if (!el) return
 
-    const dx = e.clientX - dragRef.current.startX
-    if (Math.abs(dx) > DRAG_THRESHOLD) {
+    const dx = e.clientX - dragRef.current.lastX
+    if (Math.abs(e.clientX - dragRef.current.startX) > DRAG_THRESHOLD) {
       dragRef.current.moved = true
     }
 
-    el.scrollLeft = dragRef.current.startScroll - dx
+    dragRef.current.lastX = e.clientX
+    el.scrollLeft -= dx
+
+    const half = el.scrollWidth / 2
+    if (half > 0 && el.scrollLeft >= half) {
+      el.scrollLeft -= half
+    } else if (el.scrollLeft < 0) {
+      el.scrollLeft += half
+    }
   }
 
   function handlePointerUp(e) {
@@ -181,9 +167,7 @@ function ScrollingTicker({ rewards, onOpen }) {
     dragRef.current.active = false
     scrollRef.current?.releasePointerCapture(e.pointerId)
 
-    if (moved) {
-      pauseAutoScroll()
-    } else {
+    if (!moved) {
       onOpen()
     }
   }
@@ -198,8 +182,6 @@ function ScrollingTicker({ rewards, onOpen }) {
       <div
         ref={scrollRef}
         className="ticker-scroll cursor-grab overflow-x-auto py-3 active:cursor-grabbing"
-        onScroll={() => pauseAutoScroll()}
-        onWheel={() => pauseAutoScroll()}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -214,7 +196,7 @@ function ScrollingTicker({ rewards, onOpen }) {
       </div>
 
       <p className="pointer-events-none absolute bottom-1 right-3 text-[10px] font-medium uppercase tracking-wider text-amber-400/50">
-        Scroll · tap to view
+        Scroll · auto-roll · tap to view
       </p>
     </div>
   )
