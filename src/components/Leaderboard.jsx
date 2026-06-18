@@ -64,9 +64,11 @@ function ChallengeRow({
   return (
     <li
       className={`rounded-xl border px-3 py-3 ${
-        isCurrentUser
-          ? 'border-emerald-500/40 bg-emerald-950/20'
-          : 'border-slate-800 bg-slate-800/40'
+        isTopReceiver
+          ? 'beggar-blink border-reward-500/40 bg-reward-500/10'
+          : isCurrentUser
+            ? 'border-emerald-500/40 bg-emerald-950/20'
+            : 'border-slate-800 bg-slate-800/40'
       }`}
     >
       <div className="mb-3 flex items-center gap-3">
@@ -89,7 +91,7 @@ function ChallengeRow({
             {isTopReceiver && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-reward-500/40 bg-reward-500/15 px-2 py-0.5 text-xs font-semibold text-reward-400"
-                title="Most donations received"
+                title="Highest average % of weekly step & MVPA goals received as donations"
               >
                 ♿ Beggar
               </span>
@@ -138,7 +140,10 @@ function ChallengeList({ users, mode, currentUserId }) {
 
   const goalSteps = mode === 'weekly' ? WEEKLY_GOALS.steps : null
   const goalMvpa = mode === 'weekly' ? WEEKLY_GOALS.mvpaMinutes : null
-  const topReceiverUserId = findTopReceiverUserId(users)
+  const topReceiverUserId = findTopReceiverUserId(users, {
+    stepGoal: WEEKLY_GOALS.steps,
+    mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+  })
 
   return (
     <ol className="space-y-3">

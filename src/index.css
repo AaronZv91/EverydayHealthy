@@ -47,4 +47,28 @@
   .ticker-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(251, 191, 36, 0.65);
   }
+
+  .beggar-blink {
+    animation: beggar-border-blink 1.25s ease-in-out infinite;
+  }
+
+  @keyframes beggar-border-blink {
+    0%,
+    100% {
+      border-color: rgb(234 179 8 / 0.25);
+      box-shadow: 0 0 0 0 rgb(234 179 8 / 0);
+    }
+
+    50% {
+      border-color: rgb(234 179 8 / 1);
+      box-shadow: 0 0 16px 2px rgb(234 179 8 / 0.35);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .beggar-blink {
+      animation: none;
+      border-color: rgb(234 179 8 / 0.7);
+    }
+  }
 }

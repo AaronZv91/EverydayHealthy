@@ -78,10 +78,12 @@ export function sortChallengeLeaderboard(stats) {
   )
 }
 
-/** User who received the most donations (steps weighted over MVPA). */
-export function findTopReceiverUserId(users) {
+/** User who received the most donations, by average % of weekly step & MVPA goals. */
+export function findTopReceiverUserId(users, { stepGoal, mvpaGoal }) {
   let topUserId = null
   let topScore = -1
+  let topStepsPct = -1
+  let topMvpaPct = -1
 
   for (const user of users) {
     const receivedSteps = Number(user.received_steps) || 0
@@ -89,9 +91,19 @@ export function findTopReceiverUserId(users) {
 
     if (receivedSteps === 0 && receivedMvpa === 0) continue
 
-    const score = receivedSteps * 1_000_000 + receivedMvpa
-    if (score > topScore) {
+    const stepsPct = stepGoal > 0 ? receivedSteps / stepGoal : 0
+    const mvpaPct = mvpaGoal > 0 ? receivedMvpa / mvpaGoal : 0
+    const score = (stepsPct + mvpaPct) / 2
+
+    if (
+      score > topScore ||
+      (score === topScore &&
+        (stepsPct > topStepsPct ||
+          (stepsPct === topStepsPct && mvpaPct > topMvpaPct)))
+    ) {
       topScore = score
+      topStepsPct = stepsPct
+      topMvpaPct = mvpaPct
       topUserId = user.user_id
     }
   }
