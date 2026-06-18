@@ -12,7 +12,7 @@ export default function HomePage({ user, onSignOut }) {
   const { stats, loading: statsLoading, refetch: refetchStats } = useWeeklyStats(userId)
   const { profiles, refetch: refetchProfiles } = useProfiles()
   const { rewards, loading: rewardsLoading, sendReward } = useRewards()
-  const { weeklyStats, allTimeStats, loading: leaderboardLoading, refetch: refetchLeaderboard } =
+  const { weeklyStats, allTimeStats, weeklySoldierUserId, loading: leaderboardLoading, refetch: refetchLeaderboard } =
     useChallengeLeaderboard()
   const { logActivity } = useLogActivity()
 
@@ -50,6 +50,7 @@ export default function HomePage({ user, onSignOut }) {
         <Leaderboard
           weeklyStats={weeklyStats}
           allTimeStats={allTimeStats}
+          weeklySoldierUserId={weeklySoldierUserId}
           loading={leaderboardLoading}
           currentUserId={userId}
         />

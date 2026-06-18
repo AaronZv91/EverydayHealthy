@@ -96,4 +96,71 @@
       background: linear-gradient(90deg, #ef4444, #f8fafc, #3b82f6, #eab308);
     }
   }
+
+  .beggar-pole-inner.beggar-cat-inner,
+  .beggar-pole-inner.soldier-cat-inner {
+    background: transparent;
+  }
+
+  .beggar-cat-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url('/cat-beggar.png');
+    background-size: cover;
+    background-position: right center;
+    opacity: 0.48;
+    pointer-events: none;
+  }
+
+  .beggar-cat-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgb(15 23 42 / 0.92) 0%,
+      rgb(15 23 42 / 0.58) 55%,
+      rgb(15 23 42 / 0.72) 100%
+    );
+  }
+
+  .soldier-cat-wrap {
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(52 211 153 / 0.35);
+  }
+
+  .soldier-cat-inner {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .beggar-cat-inner {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .soldier-cat-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url('/cat-soldier.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.42;
+    pointer-events: none;
+  }
+
+  .soldier-cat-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgb(15 23 42 / 0.88) 0%,
+      rgb(15 23 42 / 0.55) 45%,
+      rgb(15 23 42 / 0.75) 100%
+    );
+  }
 }

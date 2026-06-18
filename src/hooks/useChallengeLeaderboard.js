@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   buildChallengeLeaderboard,
   fetchChallengeSourceData,
+  findFirstDualGoalAchieverUserId,
   sortChallengeLeaderboard,
 } from '../lib/challengeStats'
-import { requireSupabase } from '../lib/supabaseClient'
+import { WEEKLY_GOALS, requireSupabase } from '../lib/supabaseClient'
 
 export function useChallengeLeaderboard() {
   const [weeklyStats, setWeeklyStats] = useState([])
   const [allTimeStats, setAllTimeStats] = useState([])
+  const [weeklySoldierUserId, setWeeklySoldierUserId] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchLeaderboard = useCallback(async () => {
@@ -24,6 +26,15 @@ export function useChallengeLeaderboard() {
       )
       setAllTimeStats(
         sortChallengeLeaderboard(buildChallengeLeaderboard(profiles, activities, rewards))
+      )
+      setWeeklySoldierUserId(
+        findFirstDualGoalAchieverUserId({
+          activities,
+          rewards,
+          weekStart,
+          stepGoal: WEEKLY_GOALS.steps,
+          mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+        })
       )
     } catch (error) {
       console.error(error)
@@ -55,5 +66,5 @@ export function useChallengeLeaderboard() {
     }
   }, [fetchLeaderboard])
 
-  return { weeklyStats, allTimeStats, loading, refetch: fetchLeaderboard }
+  return { weeklyStats, allTimeStats, weeklySoldierUserId, loading, refetch: fetchLeaderboard }
 }

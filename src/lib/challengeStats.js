@@ -78,6 +78,91 @@ export function sortChallengeLeaderboard(stats) {
   )
 }
 
+function userWeeklyTotals(state) {
+  return {
+    steps: Math.max(0, state.selfSteps - state.sentSteps) + state.receivedSteps,
+    mvpa: Math.max(0, state.selfMvpa - state.sentMvpa) + state.receivedMvpa,
+  }
+}
+
+function emptyUserState() {
+  return {
+    selfSteps: 0,
+    selfMvpa: 0,
+    sentSteps: 0,
+    sentMvpa: 0,
+    receivedSteps: 0,
+    receivedMvpa: 0,
+  }
+}
+
+/** First user to reach 100% on both weekly step and MVPA bars (by event time). */
+export function findFirstDualGoalAchieverUserId({
+  activities,
+  rewards,
+  weekStart,
+  stepGoal,
+  mvpaGoal,
+}) {
+  const scopedActivities = filterByWeek(activities, weekStart)
+  const scopedRewards = filterByWeek(rewards, weekStart)
+
+  const events = [
+    ...scopedActivities.map((row) => ({
+      kind: 'activity',
+      userId: row.user_id,
+      steps: Number(row.steps) || 0,
+      mvpa: Number(row.mvpa_minutes) || 0,
+      at: new Date(row.created_at).getTime(),
+      tieBreak: row.id ?? '',
+    })),
+    ...scopedRewards.map((row) => ({
+      kind: 'reward',
+      senderId: row.sender_id,
+      receiverId: row.receiver_id,
+      steps: Number(row.steps) || 0,
+      mvpa: Number(row.mvpa_minutes) || 0,
+      at: new Date(row.created_at).getTime(),
+      tieBreak: row.id ?? '',
+    })),
+  ].sort((a, b) => a.at - b.at || String(a.tieBreak).localeCompare(String(b.tieBreak)))
+
+  const state = new Map()
+
+  const getState = (userId) => {
+    if (!state.has(userId)) state.set(userId, emptyUserState())
+    return state.get(userId)
+  }
+
+  for (const event of events) {
+    const affectedUserIds = []
+
+    if (event.kind === 'activity') {
+      const userState = getState(event.userId)
+      userState.selfSteps += event.steps
+      userState.selfMvpa += event.mvpa
+      affectedUserIds.push(event.userId)
+    } else {
+      const senderState = getState(event.senderId)
+      senderState.sentSteps += event.steps
+      senderState.sentMvpa += event.mvpa
+      const receiverState = getState(event.receiverId)
+      receiverState.receivedSteps += event.steps
+      receiverState.receivedMvpa += event.mvpa
+      affectedUserIds.push(event.senderId, event.receiverId)
+    }
+
+    for (const userId of affectedUserIds) {
+      const totals = userWeeklyTotals(getState(userId))
+      if (totals.steps >= stepGoal && totals.mvpa >= mvpaGoal) {
+        return userId
+      }
+    }
+  }
+
+  return null
+}
+
 /** User who received the most donations, by average % of weekly step & MVPA goals. */
 export function findTopReceiverUserId(users, { stepGoal, mvpaGoal }) {
   let topUserId = null
@@ -115,8 +200,10 @@ export async function fetchChallengeSourceData(client) {
   const [weekStartResult, profilesResult, activitiesResult, rewardsResult] = await Promise.all([
     client.rpc('get_week_start'),
     client.from('profiles').select('id, display_name').order('display_name'),
-    client.from('activities').select('user_id, steps, mvpa_minutes, week_start'),
-    client.from('rewards').select('sender_id, receiver_id, steps, mvpa_minutes, week_start'),
+    client.from('activities').select('id, user_id, steps, mvpa_minutes, week_start, created_at'),
+    client.from('rewards').select(
+      'id, sender_id, receiver_id, steps, mvpa_minutes, week_start, created_at'
+    ),
   ])
 
   if (profilesResult.error) throw profilesResult.error

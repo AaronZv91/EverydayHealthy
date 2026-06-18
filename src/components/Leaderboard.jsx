@@ -60,6 +60,7 @@ function ChallengeRow({
   goalMvpa,
   isCurrentUser,
   isTopReceiver,
+  isWeeklySoldier,
 }) {
   const rowBody = (
     <>
@@ -80,6 +81,14 @@ function ChallengeRow({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate font-medium text-slate-100">
             <span className="truncate">{user.display_name}</span>
+            {isWeeklySoldier && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-300"
+                title="First to hit 100% on both weekly step and MVPA goals"
+              >
+                🪖 Soldier
+              </span>
+            )}
             {isTopReceiver && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-reward-500/40 bg-reward-500/15 px-2 py-0.5 text-xs font-semibold text-reward-400"
@@ -116,10 +125,30 @@ function ChallengeRow({
     </>
   )
 
+  const rowContent = (
+    <>
+      {isTopReceiver && <div className="beggar-cat-bg" aria-hidden="true" />}
+      {isWeeklySoldier && <div className="soldier-cat-bg" aria-hidden="true" />}
+      <div className="relative z-10">{rowBody}</div>
+    </>
+  )
+
   if (isTopReceiver) {
     return (
       <li className="beggar-pole-wrap">
-        <div className="beggar-pole-inner">{rowBody}</div>
+        <div
+          className={`beggar-pole-inner beggar-cat-inner ${isWeeklySoldier ? 'soldier-cat-inner' : ''}`}
+        >
+          {rowContent}
+        </div>
+      </li>
+    )
+  }
+
+  if (isWeeklySoldier) {
+    return (
+      <li className="soldier-cat-wrap">
+        <div className="soldier-cat-inner px-3 py-3">{rowContent}</div>
       </li>
     )
   }
@@ -137,7 +166,7 @@ function ChallengeRow({
   )
 }
 
-function ChallengeList({ users, mode, currentUserId }) {
+function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId }) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
   }
@@ -170,6 +199,7 @@ function ChallengeList({ users, mode, currentUserId }) {
           goalMvpa={goalMvpa}
           isCurrentUser={user.user_id === currentUserId}
           isTopReceiver={user.user_id === topReceiverUserId}
+          isWeeklySoldier={mode === 'weekly' && user.user_id === weeklySoldierUserId}
         />
       ))}
     </ol>
@@ -179,6 +209,7 @@ function ChallengeList({ users, mode, currentUserId }) {
 export default function Leaderboard({
   weeklyStats,
   allTimeStats,
+  weeklySoldierUserId,
   loading,
   currentUserId,
 }) {
@@ -249,7 +280,12 @@ export default function Leaderboard({
       </div>
 
       <div className="-mr-1 max-h-[32rem] overflow-y-auto pr-1">
-        <ChallengeList users={users} mode={mode} currentUserId={currentUserId} />
+        <ChallengeList
+          users={users}
+          mode={mode}
+          currentUserId={currentUserId}
+          weeklySoldierUserId={weeklySoldierUserId}
+        />
       </div>
     </section>
   )
