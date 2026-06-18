@@ -48,27 +48,52 @@
     background: rgba(251, 191, 36, 0.65);
   }
 
-  .beggar-blink {
-    animation: beggar-border-blink 1.25s ease-in-out infinite;
+  .beggar-pole-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    padding: 3px;
+    isolation: isolate;
   }
 
-  @keyframes beggar-border-blink {
-    0%,
-    100% {
-      border-color: rgb(234 179 8 / 0.25);
-      box-shadow: 0 0 0 0 rgb(234 179 8 / 0);
-    }
+  .beggar-pole-wrap::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 0;
+    width: 200%;
+    height: 200%;
+    background: repeating-linear-gradient(
+      90deg,
+      #ef4444 0 12px,
+      #f8fafc 12px 24px,
+      #3b82f6 24px 36px,
+      #eab308 36px 48px
+    );
+    transform: translate(-50%, -50%);
+    animation: beggar-pole-spin 1.4s linear infinite;
+  }
 
-    50% {
-      border-color: rgb(234 179 8 / 1);
-      box-shadow: 0 0 16px 2px rgb(234 179 8 / 0.35);
+  .beggar-pole-inner {
+    position: relative;
+    z-index: 1;
+    border-radius: calc(0.75rem - 3px);
+    background: rgb(15 23 42 / 0.96);
+    padding: 0.75rem;
+    box-shadow: inset 0 0 0 1px rgb(234 179 8 / 0.12);
+  }
+
+  @keyframes beggar-pole-spin {
+    to {
+      transform: translate(-50%, -50%) rotate(360deg);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .beggar-blink {
+    .beggar-pole-wrap::before {
       animation: none;
-      border-color: rgb(234 179 8 / 0.7);
+      background: linear-gradient(90deg, #ef4444, #f8fafc, #3b82f6, #eab308);
     }
   }
 }

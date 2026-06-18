@@ -61,16 +61,8 @@ function ChallengeRow({
   isCurrentUser,
   isTopReceiver,
 }) {
-  return (
-    <li
-      className={`rounded-xl border px-3 py-3 ${
-        isTopReceiver
-          ? 'beggar-blink border-reward-500/40 bg-reward-500/10'
-          : isCurrentUser
-            ? 'border-emerald-500/40 bg-emerald-950/20'
-            : 'border-slate-800 bg-slate-800/40'
-      }`}
-    >
+  const rowBody = (
+    <>
       <div className="mb-3 flex items-center gap-3">
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
@@ -121,6 +113,26 @@ function ChallengeRow({
           goal={goalMvpa}
         />
       </div>
+    </>
+  )
+
+  if (isTopReceiver) {
+    return (
+      <li className="beggar-pole-wrap">
+        <div className="beggar-pole-inner">{rowBody}</div>
+      </li>
+    )
+  }
+
+  return (
+    <li
+      className={`rounded-xl border px-3 py-3 ${
+        isCurrentUser
+          ? 'border-emerald-500/40 bg-emerald-950/20'
+          : 'border-slate-800 bg-slate-800/40'
+      }`}
+    >
+      {rowBody}
     </li>
   )
 }
