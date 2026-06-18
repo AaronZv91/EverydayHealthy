@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  buildChallengeLeaderboard,
+  fetchChallengeSourceData,
+  sortChallengeLeaderboard,
+} from '../lib/challengeStats'
 import { requireSupabase } from '../lib/supabaseClient'
-
-function sortByChallenge(a, b) {
-  return (
-    b.total_steps - a.total_steps ||
-    b.total_mvpa - a.total_mvpa ||
-    a.display_name.localeCompare(b.display_name)
-  )
-}
 
 export function useChallengeLeaderboard() {
   const [weeklyStats, setWeeklyStats] = useState([])
@@ -15,26 +12,24 @@ export function useChallengeLeaderboard() {
   const [loading, setLoading] = useState(true)
 
   const fetchLeaderboard = useCallback(async () => {
-    const client = requireSupabase()
+    try {
+      const { weekStart, profiles, activities, rewards } = await fetchChallengeSourceData(
+        requireSupabase()
+      )
 
-    const [weeklyResult, allTimeResult] = await Promise.all([
-      client.from('weekly_user_stats').select('*'),
-      client.from('all_time_user_stats').select('*'),
-    ])
-
-    if (weeklyResult.error) {
-      console.error(weeklyResult.error)
-    } else {
-      setWeeklyStats([...(weeklyResult.data ?? [])].sort(sortByChallenge))
+      setWeeklyStats(
+        sortChallengeLeaderboard(
+          buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
+        )
+      )
+      setAllTimeStats(
+        sortChallengeLeaderboard(buildChallengeLeaderboard(profiles, activities, rewards))
+      )
+    } catch (error) {
+      console.error(error)
+    } finally {
+      setLoading(false)
     }
-
-    if (allTimeResult.error) {
-      console.error(allTimeResult.error)
-    } else {
-      setAllTimeStats([...(allTimeResult.data ?? [])].sort(sortByChallenge))
-    }
-
-    setLoading(false)
   }, [])
 
   useEffect(() => {

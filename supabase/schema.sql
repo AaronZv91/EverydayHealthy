@@ -244,14 +244,18 @@ select
   coalesce(a.self_mvpa, 0) as self_mvpa,
   coalesce(r.received_steps, 0) as received_steps,
   coalesce(r.received_mvpa, 0) as received_mvpa,
-  coalesce(a.self_steps, 0) + coalesce(r.received_steps, 0) as total_steps,
-  coalesce(a.self_mvpa, 0) + coalesce(r.received_mvpa, 0) as total_mvpa,
+  greatest(0, coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0))
+    + coalesce(r.received_steps, 0) as total_steps,
+  greatest(0, coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0))
+    + coalesce(r.received_mvpa, 0) as total_mvpa,
   coalesce(s.sent_steps, 0) as sent_steps,
   coalesce(s.sent_mvpa, 0) as sent_mvpa,
-  coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0) as available_steps,
-  coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0) as available_mvpa,
+  greatest(0, coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0)) as available_steps,
+  greatest(0, coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0)) as available_mvpa,
   coalesce(s.reward_count, 0) as rewards_sent_count,
-  coalesce(r.reward_count, 0) as rewards_received_count
+  coalesce(r.reward_count, 0) as rewards_received_count,
+  greatest(0, coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0)) as net_self_steps,
+  greatest(0, coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0)) as net_self_mvpa
 from public.profiles p
 left join lateral (
   select
@@ -291,12 +295,16 @@ select
   coalesce(a.self_mvpa, 0) as self_mvpa,
   coalesce(r.received_steps, 0) as received_steps,
   coalesce(r.received_mvpa, 0) as received_mvpa,
-  coalesce(a.self_steps, 0) + coalesce(r.received_steps, 0) as total_steps,
-  coalesce(a.self_mvpa, 0) + coalesce(r.received_mvpa, 0) as total_mvpa,
+  greatest(0, coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0))
+    + coalesce(r.received_steps, 0) as total_steps,
+  greatest(0, coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0))
+    + coalesce(r.received_mvpa, 0) as total_mvpa,
   coalesce(s.sent_steps, 0) as sent_steps,
   coalesce(s.sent_mvpa, 0) as sent_mvpa,
   coalesce(s.reward_count, 0) as rewards_sent_count,
-  coalesce(r.reward_count, 0) as rewards_received_count
+  coalesce(r.reward_count, 0) as rewards_received_count,
+  greatest(0, coalesce(a.self_steps, 0) - coalesce(s.sent_steps, 0)) as net_self_steps,
+  greatest(0, coalesce(a.self_mvpa, 0) - coalesce(s.sent_mvpa, 0)) as net_self_mvpa
 from public.profiles p
 left join lateral (
   select sum(steps) as self_steps, sum(mvpa_minutes) as self_mvpa

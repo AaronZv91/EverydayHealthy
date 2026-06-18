@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 
-function StackedHorizontalBar({ label, self, donated, scaleMax, goal }) {
-  const total = self + donated
+function StackedHorizontalBar({ label, self, received, sent, scaleMax, goal }) {
+  const total = self + received
   const barWidthPct = scaleMax > 0 ? Math.min(100, (total / scaleMax) * 100) : 0
   const selfPctOfBar = total > 0 ? (self / total) * 100 : 0
-  const donatedPctOfBar = total > 0 ? (donated / total) * 100 : 0
+  const receivedPctOfBar = total > 0 ? (received / total) * 100 : 0
   const goalPct = goal && scaleMax > 0 ? Math.min(100, (goal / scaleMax) * 100) : null
 
   return (
@@ -15,6 +15,7 @@ function StackedHorizontalBar({ label, self, donated, scaleMax, goal }) {
         <span className="text-slate-400">{label}</span>
         <span className="tabular-nums text-slate-500">
           {formatNumber(total)}
+          {sent > 0 ? ` · sent ${formatNumber(sent)}` : ''}
           {goal ? ` / ${formatNumber(goal)}` : ''}
         </span>
       </div>
@@ -32,14 +33,14 @@ function StackedHorizontalBar({ label, self, donated, scaleMax, goal }) {
               <div
                 className="h-full bg-emerald-500"
                 style={{ width: `${selfPctOfBar}%` }}
-                title={`Self: ${formatNumber(self)}`}
+                title={`Self (net): ${formatNumber(self)}`}
               />
             )}
-            {donated > 0 && (
+            {received > 0 && (
               <div
                 className="h-full bg-reward-500"
-                style={{ width: `${donatedPctOfBar}%` }}
-                title={`Donated: ${formatNumber(donated)}`}
+                style={{ width: `${receivedPctOfBar}%` }}
+                title={`Received: ${formatNumber(received)}`}
               />
             )}
           </div>
@@ -85,15 +86,17 @@ function ChallengeRow({ rank, user, scaleSteps, scaleMvpa, goalSteps, goalMvpa, 
       <div className="space-y-2.5">
         <StackedHorizontalBar
           label="Steps"
-          self={user.self_steps ?? 0}
-          donated={user.received_steps ?? 0}
+          self={user.net_self_steps ?? 0}
+          received={user.received_steps ?? 0}
+          sent={user.sent_steps ?? 0}
           scaleMax={scaleSteps}
           goal={goalSteps}
         />
         <StackedHorizontalBar
           label="MVPA (min)"
-          self={user.self_mvpa ?? 0}
-          donated={user.received_mvpa ?? 0}
+          self={user.net_self_mvpa ?? 0}
+          received={user.received_mvpa ?? 0}
+          sent={user.sent_mvpa ?? 0}
           scaleMax={scaleMvpa}
           goal={goalMvpa}
         />
@@ -194,11 +197,11 @@ export default function Leaderboard({
       <div className="mb-3 flex flex-wrap gap-4 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-          Self contributed
+          Self (earned − sent)
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
-          Donated (received)
+          Received
         </span>
         {mode === 'weekly' && (
           <span className="flex items-center gap-1.5">

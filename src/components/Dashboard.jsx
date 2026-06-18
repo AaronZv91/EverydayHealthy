@@ -163,15 +163,15 @@ export default function Dashboard({ stats, loading }) {
         <div className="flex flex-col gap-6 md:flex-row">
           <MetricBarChart
             title="Steps"
-            self={stats.self_steps}
-            rewarded={stats.received_steps}
+            self={stats.net_self_steps ?? 0}
+            rewarded={stats.received_steps ?? 0}
             goal={WEEKLY_GOALS.steps}
             unit="steps"
           />
           <MetricBarChart
             title="MVPA"
-            self={stats.self_mvpa}
-            rewarded={stats.received_mvpa}
+            self={stats.net_self_mvpa ?? 0}
+            rewarded={stats.received_mvpa ?? 0}
             goal={WEEKLY_GOALS.mvpaMinutes}
             unit="min"
           />
@@ -179,7 +179,7 @@ export default function Dashboard({ stats, loading }) {
         <div className="mt-2 flex gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-500" />
-            Cyan: self earned
+            Cyan: net self (earned − sent)
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />

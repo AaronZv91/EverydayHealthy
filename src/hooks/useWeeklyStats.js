@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { buildUserChallengeStats, fetchChallengeSourceData } from '../lib/challengeStats'
 import { requireSupabase } from '../lib/supabaseClient'
 
 export function useProfiles() {
@@ -37,48 +38,31 @@ export function useWeeklyStats(userId) {
       return
     }
 
-    const { data, error } = await requireSupabase()
-      .from('weekly_user_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle()
+    try {
+      const client = requireSupabase()
+      const { weekStart, profiles, activities, rewards } = await fetchChallengeSourceData(client)
+      const profile = profiles.find((row) => row.id === userId)
 
-    if (error) {
+      if (!profile) {
+        setStats(null)
+        return
+      }
+
+      setStats(
+        buildUserChallengeStats({
+          userId,
+          displayName: profile.display_name,
+          weekStart,
+          activities,
+          rewards,
+        })
+      )
+    } catch (error) {
       console.error(error)
+    } finally {
       setLoading(false)
-      return
     }
-
-    setStats(data)
-    setLoading(false)
   }, [userId])
-
-  useEffect(() => {
-    fetchStats()
-  }, [fetchStats])
-
-  return { stats, loading, refetch: fetchStats }
-}
-
-export function useAllWeeklyStats() {
-  const [stats, setStats] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchStats = useCallback(async () => {
-    const { data, error } = await requireSupabase()
-      .from('weekly_user_stats')
-      .select('*')
-      .order('total_steps', { ascending: false })
-
-    if (error) {
-      console.error(error)
-      setLoading(false)
-      return
-    }
-
-    setStats(data ?? [])
-    setLoading(false)
-  }, [])
 
   useEffect(() => {
     fetchStats()
