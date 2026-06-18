@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { findTopReceiverUserId } from '../lib/challengeStats'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 
@@ -166,7 +165,7 @@ function ChallengeRow({
   )
 }
 
-function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId }) {
+function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId, weeklyBeggarUserId }) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
   }
@@ -181,10 +180,6 @@ function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId }) {
 
   const goalSteps = mode === 'weekly' ? WEEKLY_GOALS.steps : null
   const goalMvpa = mode === 'weekly' ? WEEKLY_GOALS.mvpaMinutes : null
-  const topReceiverUserId = findTopReceiverUserId(users, {
-    stepGoal: WEEKLY_GOALS.steps,
-    mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
-  })
 
   return (
     <ol className="space-y-3">
@@ -198,7 +193,7 @@ function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId }) {
           goalSteps={goalSteps}
           goalMvpa={goalMvpa}
           isCurrentUser={user.user_id === currentUserId}
-          isTopReceiver={user.user_id === topReceiverUserId}
+          isTopReceiver={mode === 'weekly' && user.user_id === weeklyBeggarUserId}
           isWeeklySoldier={mode === 'weekly' && user.user_id === weeklySoldierUserId}
         />
       ))}
@@ -210,6 +205,7 @@ export default function Leaderboard({
   weeklyStats,
   allTimeStats,
   weeklySoldierUserId,
+  weeklyBeggarUserId,
   loading,
   currentUserId,
 }) {
@@ -285,6 +281,7 @@ export default function Leaderboard({
           mode={mode}
           currentUserId={currentUserId}
           weeklySoldierUserId={weeklySoldierUserId}
+          weeklyBeggarUserId={weeklyBeggarUserId}
         />
       </div>
     </section>
