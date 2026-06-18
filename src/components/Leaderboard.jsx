@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { findTopReceiverUserId } from '../lib/challengeStats'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 
@@ -50,7 +51,16 @@ function StackedHorizontalBar({ label, self, received, sent, scaleMax, goal }) {
   )
 }
 
-function ChallengeRow({ rank, user, scaleSteps, scaleMvpa, goalSteps, goalMvpa, isCurrentUser }) {
+function ChallengeRow({
+  rank,
+  user,
+  scaleSteps,
+  scaleMvpa,
+  goalSteps,
+  goalMvpa,
+  isCurrentUser,
+  isTopReceiver,
+}) {
   return (
     <li
       className={`rounded-xl border px-3 py-3 ${
@@ -74,10 +84,18 @@ function ChallengeRow({ rank, user, scaleSteps, scaleMvpa, goalSteps, goalMvpa, 
           {rank}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-slate-100">
-            {user.display_name}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate font-medium text-slate-100">
+            <span className="truncate">{user.display_name}</span>
+            {isTopReceiver && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-reward-500/40 bg-reward-500/15 px-2 py-0.5 text-xs font-semibold text-reward-400"
+                title="Most donations received"
+              >
+                ♿ Beggar
+              </span>
+            )}
             {isCurrentUser && (
-              <span className="ml-2 text-xs font-normal text-emerald-400">(you)</span>
+              <span className="shrink-0 text-xs font-normal text-emerald-400">(you)</span>
             )}
           </p>
         </div>
@@ -120,6 +138,7 @@ function ChallengeList({ users, mode, currentUserId }) {
 
   const goalSteps = mode === 'weekly' ? WEEKLY_GOALS.steps : null
   const goalMvpa = mode === 'weekly' ? WEEKLY_GOALS.mvpaMinutes : null
+  const topReceiverUserId = findTopReceiverUserId(users)
 
   return (
     <ol className="space-y-3">
@@ -133,6 +152,7 @@ function ChallengeList({ users, mode, currentUserId }) {
           goalSteps={goalSteps}
           goalMvpa={goalMvpa}
           isCurrentUser={user.user_id === currentUserId}
+          isTopReceiver={user.user_id === topReceiverUserId}
         />
       ))}
     </ol>

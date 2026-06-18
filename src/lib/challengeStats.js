@@ -78,6 +78,27 @@ export function sortChallengeLeaderboard(stats) {
   )
 }
 
+/** User who received the most donations (steps weighted over MVPA). */
+export function findTopReceiverUserId(users) {
+  let topUserId = null
+  let topScore = -1
+
+  for (const user of users) {
+    const receivedSteps = Number(user.received_steps) || 0
+    const receivedMvpa = Number(user.received_mvpa) || 0
+
+    if (receivedSteps === 0 && receivedMvpa === 0) continue
+
+    const score = receivedSteps * 1_000_000 + receivedMvpa
+    if (score > topScore) {
+      topScore = score
+      topUserId = user.user_id
+    }
+  }
+
+  return topUserId
+}
+
 export async function fetchChallengeSourceData(client) {
   const [weekStartResult, profilesResult, activitiesResult, rewardsResult] = await Promise.all([
     client.rpc('get_week_start'),
