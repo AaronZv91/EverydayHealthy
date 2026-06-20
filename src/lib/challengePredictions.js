@@ -114,6 +114,90 @@ function buildReason(parts) {
   return parts.filter(Boolean).join(' ')
 }
 
+function formatCount(n) {
+  return Math.round(n ?? 0).toLocaleString('en-US')
+}
+
+function buildFirstCompleterReason(candidate, hasHistory) {
+  const { history, currentCombinedPct, currentTotalSteps, currentTotalMvpa, isActiveThisWeek } =
+    candidate
+
+  if (!hasHistory || history.weeksSeen === 0) {
+    return buildReason([
+      isActiveThisWeek
+        ? `Leading pace this week with ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA min.`
+        : 'No clear front-runner from history yet.',
+      currentCombinedPct > 0
+        ? `${Math.round(currentCombinedPct * 100)}% toward both goals this week.`
+        : null,
+    ])
+  }
+
+  return buildReason([
+    history.firstCompleterWeeks > 0
+      ? `Finished first ${history.firstCompleterWeeks} time(s) before.`
+      : 'Strong weekly pace and completion history.',
+    history.completionWeeks > 0
+      ? `Hit both goals in ${history.completionWeeks} past week(s).`
+      : null,
+    isActiveThisWeek
+      ? `This week: ${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA min (${Math.round(currentCombinedPct * 100)}%).`
+      : null,
+  ])
+}
+
+function buildLastPlaceReason(candidate, hasHistory) {
+  const { history, currentCombinedPct, currentTotalSteps, currentTotalMvpa, isActiveThisWeek } =
+    candidate
+
+  if (!hasHistory || history.weeksSeen === 0) {
+    return buildReason([
+      isActiveThisWeek
+        ? `Lowest combined progress this week (${Math.round(currentCombinedPct * 100)}% of goals).`
+        : 'No activity logged this week yet.',
+      isActiveThisWeek
+        ? `This week: ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA min.`
+        : null,
+    ])
+  }
+
+  return buildReason([
+    history.lastPlaceWeeks > 0
+      ? `Finished last ${history.lastPlaceWeeks} time(s) before.`
+      : 'Lowest typical weekly output in past weeks.',
+    `Historically averages ${formatCount(history.avgTotalSteps)} steps and ${formatCount(history.avgTotalMvpa)} MVPA min per week.`,
+    isActiveThisWeek
+      ? `This week so far: ${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA min.`
+      : 'No activity yet this week.',
+    history.avgActivityCount < 1 ? 'Logs activity less often than others.' : null,
+  ])
+}
+
+function buildBeggarReason(candidate, hasHistory) {
+  const { history, currentReceivedPct, isActiveThisWeek } = candidate
+
+  if (!hasHistory || history.weeksSeen === 0) {
+    return buildReason([
+      currentReceivedPct > 0
+        ? `Receiving the most donations this week (${Math.round(currentReceivedPct * 100)}% of goals).`
+        : 'Most likely to receive the highest share of donated quota.',
+      isActiveThisWeek ? null : 'Has not logged self activity this week.',
+    ])
+  }
+
+  return buildReason([
+    history.beggarWeeks > 0
+      ? `Was Beggar ${history.beggarWeeks} time(s) before.`
+      : 'Receives the highest share of donated quota.',
+    history.avgRewardsReceived > 0
+      ? `Averages ${history.avgRewardsReceived.toFixed(1)} rewards received per week.`
+      : null,
+    currentReceivedPct > 0
+      ? `${Math.round(currentReceivedPct * 100)}% of weekly goals received as donations this week.`
+      : null,
+  ])
+}
+
 export function buildChallengePredictions({
   profiles,
   activities,
@@ -175,8 +259,8 @@ export function buildChallengePredictions({
   )
   const currentByUser = new Map(currentStats.map((row) => [row.user_id, row]))
 
-  const historyWeight = hasHistory ? 0.72 : 0.35
-  const currentWeight = 1 - historyWeight
+  const historyWeight = hasHistory ? 0.72 : 0
+  const currentWeight = hasHistory ? 0.28 : 1
 
   const candidates = profiles.map((profile) => {
     const history = finalizeMetrics(
@@ -190,36 +274,40 @@ export function buildChallengePredictions({
       received_mvpa: 0,
     }
 
+    const currentTotalSteps = current.total_steps ?? 0
+    const currentTotalMvpa = current.total_mvpa ?? 0
+    const currentOutput = currentTotalSteps + currentTotalMvpa * 350
     const currentCombinedPct = combinedGoalPct(current, stepGoal, mvpaGoal)
     const currentReceivedPct = receivedGoalPct(current, stepGoal, mvpaGoal)
-    const activityScore = history.avgActivityCount + (current.total_steps > 0 || current.total_mvpa > 0 ? 0.5 : 0)
+    const isActiveThisWeek = currentTotalSteps > 0 || currentTotalMvpa > 0
 
     const firstCompleterScore =
       history.firstCompleterRate * historyWeight * 100 +
       history.completionRate * historyWeight * 60 +
       history.avgCombinedPct * historyWeight * 40 +
-      currentCombinedPct * currentWeight * 30 +
-      activityScore * 5
+      currentCombinedPct * currentWeight * 100 +
+      (isActiveThisWeek ? 5 : 0)
 
     const lastPlaceScore =
       history.avgTotalSteps * historyWeight +
       history.avgTotalMvpa * historyWeight * 350 +
-      history.avgCombinedPct * historyWeight * stepGoal * 0.15 +
-      (current.total_steps + current.total_mvpa * 350) * currentWeight * 0.2 +
-      activityScore * 800
+      currentOutput * currentWeight
 
     const beggarScore =
       history.beggarRate * historyWeight * 100 +
       history.avgReceivedPct * historyWeight * 80 +
       history.avgRewardsReceived * historyWeight * 8 +
-      currentReceivedPct * currentWeight * 40
+      currentReceivedPct * currentWeight * 100
 
     return {
       userId: profile.id,
       displayName: profile.display_name,
       history,
+      currentTotalSteps,
+      currentTotalMvpa,
       currentCombinedPct,
       currentReceivedPct,
+      isActiveThisWeek,
       firstCompleterScore,
       lastPlaceScore,
       beggarScore,
@@ -269,17 +357,7 @@ export function buildChallengePredictions({
                 firstCompleter.currentCombinedPct * 10
             )
           ),
-          reason: buildReason([
-            firstCompleter.history.firstCompleterWeeks > 0
-              ? `Finished first ${firstCompleter.history.firstCompleterWeeks} time(s) before.`
-              : 'Strong weekly pace and completion history.',
-            firstCompleter.history.completionWeeks > 0
-              ? `Hit both goals in ${firstCompleter.history.completionWeeks} past week(s).`
-              : null,
-            firstCompleter.currentCombinedPct > 0.5
-              ? `Already ${Math.round(firstCompleter.currentCombinedPct * 100)}% toward goals this week.`
-              : null,
-          ]),
+          reason: buildFirstCompleterReason(firstCompleter, hasHistory),
         }
       : null,
     lastPlace: lastPlace
@@ -291,19 +369,11 @@ export function buildChallengePredictions({
             Math.round(
               40 +
                 lastPlace.history.lastPlaceRate * 35 +
-                (1 - lastPlace.history.avgCombinedPct) * 15 +
+                (hasHistory ? (1 - lastPlace.history.avgCombinedPct) * 15 : 0) +
                 (lastPlace.currentCombinedPct < 0.25 ? 10 : 0)
             )
           ),
-          reason: buildReason([
-            lastPlace.history.lastPlaceWeeks > 0
-              ? `Finished last ${lastPlace.history.lastPlaceWeeks} time(s) before.`
-              : 'Lowest historical weekly output.',
-            `Averages ${Math.round(lastPlace.history.avgTotalSteps).toLocaleString()} steps and ${Math.round(lastPlace.history.avgTotalMvpa)} MVPA min per week.`,
-            lastPlace.history.avgActivityCount < 1
-              ? 'Logs activity less often than others.'
-              : null,
-          ]),
+          reason: buildLastPlaceReason(lastPlace, hasHistory),
         }
       : null,
     beggar: beggar
@@ -319,17 +389,7 @@ export function buildChallengePredictions({
                 beggar.currentReceivedPct * 10
             )
           ),
-          reason: buildReason([
-            beggar.history.beggarWeeks > 0
-              ? `Was Beggar ${beggar.history.beggarWeeks} time(s) before.`
-              : 'Receives the highest share of donated quota.',
-            beggar.history.avgRewardsReceived > 0
-              ? `Averages ${beggar.history.avgRewardsReceived.toFixed(1)} rewards received per week.`
-              : null,
-            beggar.currentReceivedPct > 0
-              ? `${Math.round(beggar.currentReceivedPct * 100)}% of weekly goals received as donations this week.`
-              : null,
-          ]),
+          reason: buildBeggarReason(beggar, hasHistory),
         }
       : null,
   }
