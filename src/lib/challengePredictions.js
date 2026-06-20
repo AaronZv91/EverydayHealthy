@@ -118,169 +118,6 @@ function formatCount(n) {
   return Math.round(n ?? 0).toLocaleString('en-US')
 }
 
-function pickLine(options, seed) {
-  if (!options.length) return ''
-  return options[Math.abs(seed) % options.length]
-}
-
-function buildTrashySummary({
-  activeThisWeek,
-  profileCount,
-  completedThisWeek,
-  leader,
-  hasHistory,
-  historyWeekCount,
-  firstCompleter,
-  lastPlace,
-  beggar,
-}) {
-  const parts = [
-    hasHistory
-      ? `Trash oracle scanned ${historyWeekCount} week(s) of receipts and issued verdicts.`
-      : `No archive yet — judging everyone purely on this week's fitness crimes.`,
-    activeThisWeek === 0
-      ? 'Nobody logged anything. Statistically embarrassing for the whole squad.'
-      : activeThisWeek === profileCount
-        ? 'Full roster showed up. Rare. Suspicious. Respect anyway.'
-        : `${profileCount - activeThisWeek} player(s) ghosting the week. Bold.`,
-    completedThisWeek > 0
-      ? `${completedThisWeek} already cleared both goals. Show-offs among us.`
-      : 'Zero double-goal finishers yet. Plenty of shame left to go around.',
-    leader
-      ? `${leader.display_name} tops the board at ${formatCount(leader.total_steps)} steps. Temporary crown — hate to see it.`
-      : null,
-    firstCompleter && lastPlace && beggar
-      ? `Hot takes: ${firstCompleter.displayName} finishes first, ${lastPlace.displayName} eats last place, ${beggar.displayName} inherits the beggar throne.`
-      : null,
-  ]
-  return parts.filter(Boolean).join(' ')
-}
-
-function buildPlayerTake(candidate, ctx) {
-  const {
-    stepGoal,
-    mvpaGoal,
-    hasHistory,
-    rank,
-    flags: { isLeader, isFirstPick, isLastPick, isBeggarPick },
-  } = ctx
-
-  const {
-    userId,
-    displayName,
-    history,
-    currentTotalSteps,
-    currentTotalMvpa,
-    currentReceivedSteps,
-    currentReceivedMvpa,
-    currentCombinedPct,
-    currentReceivedPct,
-    isActiveThisWeek,
-  } = candidate
-
-  const pct = Math.round(currentCombinedPct * 100)
-  const recvPct = Math.round(currentReceivedPct * 100)
-  const seed = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-
-  const tags = []
-  if (isLeader) tags.push({ emoji: '👑', label: 'Leader' })
-  if (isFirstPick) tags.push({ emoji: '🪖', label: 'First pick' })
-  if (isLastPick) tags.push({ emoji: '🐌', label: 'Last pick' })
-  if (isBeggarPick) tags.push({ emoji: '♿', label: 'Beggar pick' })
-  if (pct >= 100) tags.push({ emoji: '✅', label: 'Both goals' })
-
-  const statParts = [
-    `${formatCount(currentTotalSteps)}/${formatCount(stepGoal)} steps`,
-    `${formatCount(currentTotalMvpa)}/${mvpaGoal} MVPA`,
-    `${pct}% goals`,
-  ]
-  if (currentReceivedSteps > 0 || currentReceivedMvpa > 0) {
-    statParts.push(
-      `${formatCount(currentReceivedSteps)} recv steps · ${formatCount(currentReceivedMvpa)} recv MVPA (${recvPct}%)`
-    )
-  }
-  if (hasHistory && history.weeksSeen > 0) {
-    statParts.push(
-      `avg ${formatCount(history.avgTotalSteps)} st/wk · ${formatCount(history.avgTotalMvpa)} MVPA/wk · ${history.completionWeeks} finish(es) · ${history.beggarWeeks} beggar wk(s)`
-    )
-  }
-
-  let roastPool = []
-
-  if (!isActiveThisWeek) {
-    roastPool = [
-      `${displayName} logged nothing this week. The couch sent a thank-you card.`,
-      `Zero steps, zero MVPA. ${displayName} is cosplaying as furniture.`,
-      `No data, no mercy. Log something before the oracle roasts you harder.`,
-    ]
-  } else if (isBeggarPick && recvPct >= 10) {
-    roastPool = [
-      `${displayName} runs on donated quota — ${recvPct}% of goals came from charity. Professional beggar arc.`,
-      `Handout king/queen energy: ${formatCount(currentReceivedSteps)} gifted steps. Walk? Optional.`,
-      `The group chat feeds ${displayName} steps like pigeons in a park. Dignity sold separately.`,
-    ]
-  } else if (pct >= 100) {
-    roastPool = [
-      `Both goals done (${pct}%). ${displayName} is insufferable and we all know it.`,
-      `Finished early with ${formatCount(currentTotalSteps)} steps. Save some glory for mortals.`,
-      `Completed. Touch grass anyway — victory laps are still cardio.`,
-    ]
-  } else if (isFirstPick) {
-    roastPool = [
-      `AI's soldier pick at ${pct}%. ${displayName}, don't choke — the math believes in you.`,
-      `Projected first finisher. Pressure is free; so is public humiliation if you slack.`,
-      `Front-runner forecast. ${formatCount(currentTotalSteps)} steps says you're trying. Keep being annoying about it.`,
-    ]
-  } else if (isLastPick) {
-    roastPool = [
-      `Bottom-feeder forecast at ${pct}%. Mathematics is bullying ${displayName}.`,
-      `Likely last place. Revenge-walk or embrace the L — your call.`,
-      `Lowest combined output (${formatCount(currentTotalSteps)} steps). Stealth mode or sloth mode?`,
-    ]
-  } else if (isLeader) {
-    roastPool = [
-      `#${rank} and leading. ${displayName} wears the crown until someone petty catches up.`,
-      `Board leader at ${pct}%. Enjoy the view — the pack is hungry.`,
-      `${formatCount(currentTotalSteps)} steps on top. Humble yourself before Monday does it for you.`,
-    ]
-  } else if (recvPct >= 15) {
-    roastPool = [
-      `${pct}% self, ${recvPct}% charity. ${displayName}'s business model is 50% hustle, 50% hand-me-downs.`,
-      `Decent grind, but donations carry ${recvPct}% of the load. Mixed vibes.`,
-    ]
-  } else if (pct < 15) {
-    roastPool = [
-      `${pct}% of goals. ${displayName} moves at government paperwork speed.`,
-      `Barely on the board. Scroll faster — maybe the phone will count that.`,
-    ]
-  } else if (pct < 50) {
-    roastPool = [
-      `${pct}% — certified mid. Not tragic, not impressive. Peak participation-trophy zone.`,
-      `Half-effort hall of fame at ${formatCount(currentTotalSteps)} steps. Pick a lane.`,
-    ]
-  } else {
-    roastPool = [
-      `${pct}% and dangerous. ${displayName} is in the fight — don't get cute.`,
-      `${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA. Respectable grind. Still not safe.`,
-    ]
-  }
-
-  if (hasHistory && history.lastPlaceWeeks >= 2 && !isLeader) {
-    roastPool.push(
-      `Finished last ${history.lastPlaceWeeks} time(s) before. Pattern recognition: activated.`
-    )
-  }
-
-  return {
-    userId,
-    displayName,
-    rank,
-    statsLine: statParts.join(' · '),
-    roast: pickLine(roastPool, seed),
-    tags,
-  }
-}
-
 function buildFirstCompleterReason(candidate, hasHistory) {
   const { history, currentCombinedPct, currentTotalSteps, currentTotalMvpa, isActiveThisWeek } =
     candidate
@@ -439,8 +276,6 @@ export function buildChallengePredictions({
 
     const currentTotalSteps = current.total_steps ?? 0
     const currentTotalMvpa = current.total_mvpa ?? 0
-    const currentReceivedSteps = current.received_steps ?? 0
-    const currentReceivedMvpa = current.received_mvpa ?? 0
     const currentOutput = currentTotalSteps + currentTotalMvpa * 350
     const currentCombinedPct = combinedGoalPct(current, stepGoal, mvpaGoal)
     const currentReceivedPct = receivedGoalPct(current, stepGoal, mvpaGoal)
@@ -470,8 +305,6 @@ export function buildChallengePredictions({
       history,
       currentTotalSteps,
       currentTotalMvpa,
-      currentReceivedSteps,
-      currentReceivedMvpa,
       currentCombinedPct,
       currentReceivedPct,
       isActiveThisWeek,
@@ -493,43 +326,24 @@ export function buildChallengePredictions({
   ).length
 
   const leader = currentStats[0]
-  const rankByUser = new Map(currentStats.map((row, index) => [row.user_id, index + 1]))
-
-  const playerTakes = candidates
-    .map((candidate) =>
-      buildPlayerTake(candidate, {
-        stepGoal,
-        mvpaGoal,
-        hasHistory,
-        rank: rankByUser.get(candidate.userId) ?? profiles.length,
-        flags: {
-          isLeader: leader?.user_id === candidate.userId,
-          isFirstPick: firstCompleter?.userId === candidate.userId,
-          isLastPick: lastPlace?.userId === candidate.userId,
-          isBeggarPick: beggar?.userId === candidate.userId,
-        },
-      })
-    )
-    .sort((a, b) => a.rank - b.rank || a.displayName.localeCompare(b.displayName))
-
-  const summary = buildTrashySummary({
-    activeThisWeek,
-    profileCount: profiles.length,
-    completedThisWeek,
-    leader,
-    hasHistory,
-    historyWeekCount: historyWeeks.length,
-    firstCompleter,
-    lastPlace,
-    beggar,
-  })
+  const summaryParts = [
+    `${activeThisWeek}/${profiles.length} players active this week.`,
+    completedThisWeek > 0
+      ? `${completedThisWeek} already completed both goals.`
+      : 'No one has finished both goals yet.',
+    leader
+      ? `${leader.display_name} leads the current board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps.`
+      : null,
+    hasHistory
+      ? `Forecasts blend ${historyWeeks.length} past week(s) with this week's pace.`
+      : 'Forecasts rely mostly on this week because history is limited.',
+  ]
 
   return {
-    summary,
+    summary: summaryParts.filter(Boolean).join(' '),
     hasHistory,
     historyWeekCount: historyWeeks.length,
     updatedAt: Date.now(),
-    playerTakes,
     firstCompleter: firstCompleter
       ? {
           userId: firstCompleter.userId,
