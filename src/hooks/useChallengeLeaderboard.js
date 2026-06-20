@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   buildChallengeLeaderboard,
   fetchChallengeSourceData,
@@ -9,6 +9,8 @@ import {
 import { buildChallengePredictions } from '../lib/challengePredictions'
 import { WEEKLY_GOALS, requireSupabase } from '../lib/supabaseClient'
 
+const REFETCH_DEBOUNCE_MS = 350
+
 export function useChallengeLeaderboard() {
   const [weeklyStats, setWeeklyStats] = useState([])
   const [allTimeStats, setAllTimeStats] = useState([])
@@ -16,8 +18,14 @@ export function useChallengeLeaderboard() {
   const [weeklyBeggarUserId, setWeeklyBeggarUserId] = useState(null)
   const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const isInitialLoad = useRef(true)
+  const debounceTimer = useRef(null)
 
   const fetchLeaderboard = useCallback(async () => {
+    const isInitial = isInitialLoad.current
+    if (!isInitial) setRefreshing(true)
+
     try {
       const { weekStart, profiles, activities, rewards } = await fetchChallengeSourceData(
         requireSupabase()
@@ -59,9 +67,20 @@ export function useChallengeLeaderboard() {
     } catch (error) {
       console.error(error)
     } finally {
-      setLoading(false)
+      if (isInitial) {
+        setLoading(false)
+        isInitialLoad.current = false
+      }
+      setRefreshing(false)
     }
   }, [])
+
+  const scheduleRefetch = useCallback(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      fetchLeaderboard()
+    }, REFETCH_DEBOUNCE_MS)
+  }, [fetchLeaderboard])
 
   useEffect(() => {
     fetchLeaderboard()
@@ -72,19 +91,20 @@ export function useChallengeLeaderboard() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rewards' },
-        () => fetchLeaderboard()
+        scheduleRefetch
       )
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activities' },
-        () => fetchLeaderboard()
+        { event: '*', schema: 'public', table: 'activities' },
+        scheduleRefetch
       )
       .subscribe()
 
     return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current)
       client.removeChannel(channel)
     }
-  }, [fetchLeaderboard])
+  }, [fetchLeaderboard, scheduleRefetch])
 
   return {
     weeklyStats,
@@ -93,6 +113,7 @@ export function useChallengeLeaderboard() {
     weeklyBeggarUserId,
     predictions,
     loading,
+    refreshing,
     refetch: fetchLeaderboard,
   }
 }

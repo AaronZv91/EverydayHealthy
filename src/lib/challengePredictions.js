@@ -255,6 +255,7 @@ export function buildChallengePredictions({
     summary: summaryParts.filter(Boolean).join(' '),
     hasHistory,
     historyWeekCount: historyWeeks.length,
+    updatedAt: Date.now(),
     firstCompleter: firstCompleter
       ? {
           userId: firstCompleter.userId,

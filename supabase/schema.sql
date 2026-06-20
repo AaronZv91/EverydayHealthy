@@ -371,5 +371,6 @@ grant execute on function public.send_reward(uuid, text, text, integer, integer)
 grant execute on function public.log_activity(integer, integer, text) to authenticated;
 grant execute on function public.get_week_start(date) to authenticated, anon;
 
--- Enable Realtime for ticker
+-- Enable Realtime for ticker and live leaderboard / predictions
 alter publication supabase_realtime add table public.rewards;
+alter publication supabase_realtime add table public.activities;

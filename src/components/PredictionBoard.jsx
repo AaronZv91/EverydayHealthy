@@ -24,7 +24,7 @@ function PredictionCard({ icon, title, prediction, accentClass }) {
   )
 }
 
-export default function PredictionBoard({ predictions, loading, currentUserId }) {
+export default function PredictionBoard({ predictions, loading, refreshing, currentUserId }) {
   if (loading) {
     return (
       <section className="card">
@@ -63,12 +63,21 @@ export default function PredictionBoard({ predictions, loading, currentUserId })
   }
 
   return (
-    <section className="card space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
-        <p className="mt-0.5 text-sm text-slate-400">
-          Forecast from weekly history, activity frequency, and donation patterns
-        </p>
+    <section className={`card space-y-4 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
+          <p className="mt-0.5 text-sm text-slate-400">
+            Forecast from weekly history, activity frequency, and donation patterns
+          </p>
+        </div>
+        {refreshing ? (
+          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-950/40 px-2.5 py-1 text-xs font-medium text-brand-400">
+            Updating…
+          </span>
+        ) : predictions.updatedAt ? (
+          <span className="shrink-0 text-xs text-slate-500">Live</span>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-brand-500/20 bg-brand-950/20 px-4 py-3">

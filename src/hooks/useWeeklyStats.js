@@ -66,6 +66,25 @@ export function useWeeklyStats(userId) {
 
   useEffect(() => {
     fetchStats()
+
+    const client = requireSupabase()
+    const channel = client
+      .channel('weekly-stats')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rewards' },
+        () => fetchStats()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'activities' },
+        () => fetchStats()
+      )
+      .subscribe()
+
+    return () => {
+      client.removeChannel(channel)
+    }
   }, [fetchStats])
 
   return { stats, loading, refetch: fetchStats }
