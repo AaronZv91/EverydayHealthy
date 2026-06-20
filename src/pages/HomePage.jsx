@@ -1,6 +1,7 @@
 import ActivityForm from '../components/ActivityForm'
 import Dashboard from '../components/Dashboard'
 import Leaderboard from '../components/Leaderboard'
+import PredictionBoard from '../components/PredictionBoard'
 import RewardForm from '../components/RewardForm'
 import Ticker from '../components/Ticker'
 import { useProfiles, useWeeklyStats } from '../hooks/useWeeklyStats'
@@ -12,7 +13,7 @@ export default function HomePage({ user, onSignOut }) {
   const { stats, loading: statsLoading, refetch: refetchStats } = useWeeklyStats(userId)
   const { profiles, refetch: refetchProfiles } = useProfiles()
   const { rewards, loading: rewardsLoading, sendReward } = useRewards()
-  const { weeklyStats, allTimeStats, weeklySoldierUserId, weeklyBeggarUserId, loading: leaderboardLoading, refetch: refetchLeaderboard } =
+  const { weeklyStats, allTimeStats, weeklySoldierUserId, weeklyBeggarUserId, predictions, loading: leaderboardLoading, refetch: refetchLeaderboard } =
     useChallengeLeaderboard()
   const { logActivity } = useLogActivity()
 
@@ -52,6 +53,12 @@ export default function HomePage({ user, onSignOut }) {
           allTimeStats={allTimeStats}
           weeklySoldierUserId={weeklySoldierUserId}
           weeklyBeggarUserId={weeklyBeggarUserId}
+          loading={leaderboardLoading}
+          currentUserId={userId}
+        />
+
+        <PredictionBoard
+          predictions={predictions}
           loading={leaderboardLoading}
           currentUserId={userId}
         />

@@ -6,6 +6,7 @@ import {
   findTopReceiverUserId,
   sortChallengeLeaderboard,
 } from '../lib/challengeStats'
+import { buildChallengePredictions } from '../lib/challengePredictions'
 import { WEEKLY_GOALS, requireSupabase } from '../lib/supabaseClient'
 
 export function useChallengeLeaderboard() {
@@ -13,6 +14,7 @@ export function useChallengeLeaderboard() {
   const [allTimeStats, setAllTimeStats] = useState([])
   const [weeklySoldierUserId, setWeeklySoldierUserId] = useState(null)
   const [weeklyBeggarUserId, setWeeklyBeggarUserId] = useState(null)
+  const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchLeaderboard = useCallback(async () => {
@@ -40,6 +42,16 @@ export function useChallengeLeaderboard() {
       )
       setWeeklyBeggarUserId(
         findTopReceiverUserId(weekly, {
+          stepGoal: WEEKLY_GOALS.steps,
+          mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+        })
+      )
+      setPredictions(
+        buildChallengePredictions({
+          profiles,
+          activities,
+          rewards,
+          weekStart,
           stepGoal: WEEKLY_GOALS.steps,
           mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
         })
@@ -79,6 +91,7 @@ export function useChallengeLeaderboard() {
     allTimeStats,
     weeklySoldierUserId,
     weeklyBeggarUserId,
+    predictions,
     loading,
     refetch: fetchLeaderboard,
   }

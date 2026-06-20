@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import GoalPieChart from './GoalPieChart'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 
@@ -60,6 +61,7 @@ function ChallengeRow({
   isCurrentUser,
   isTopReceiver,
   isWeeklySoldier,
+  showGoalPies,
 }) {
   const rowBody = (
     <>
@@ -102,6 +104,27 @@ function ChallengeRow({
           </p>
         </div>
       </div>
+
+      {showGoalPies && (
+        <div className="mb-3 flex gap-2 sm:gap-4">
+          <GoalPieChart
+            compact
+            title="Steps"
+            self={user.net_self_steps ?? 0}
+            received={user.received_steps ?? 0}
+            goal={WEEKLY_GOALS.steps}
+            unit="steps"
+          />
+          <GoalPieChart
+            compact
+            title="MVPA"
+            self={user.net_self_mvpa ?? 0}
+            received={user.received_mvpa ?? 0}
+            goal={WEEKLY_GOALS.mvpaMinutes}
+            unit="min"
+          />
+        </div>
+      )}
 
       <div className="space-y-2.5">
         <StackedHorizontalBar
@@ -195,6 +218,7 @@ function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId, weekly
           isCurrentUser={user.user_id === currentUserId}
           isTopReceiver={mode === 'weekly' && user.user_id === weeklyBeggarUserId}
           isWeeklySoldier={mode === 'weekly' && user.user_id === weeklySoldierUserId}
+          showGoalPies={mode === 'weekly'}
         />
       ))}
     </ol>
@@ -268,10 +292,24 @@ export default function Leaderboard({
           Received
         </span>
         {mode === 'weekly' && (
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 border-r border-dashed border-slate-500 pr-1" />
-            Weekly goal
-          </span>
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 border-r border-dashed border-slate-500 pr-1" />
+              Weekly goal
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-500" />
+              Pie: self
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
+              Pie: received
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-600" />
+              Pie: remaining
+            </span>
+          </>
         )}
       </div>
 
