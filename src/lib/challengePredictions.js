@@ -198,6 +198,126 @@ function buildBeggarReason(candidate, hasHistory) {
   ])
 }
 
+function buildPlayerPrediction(candidate, ctx) {
+  const {
+    stepGoal,
+    mvpaGoal,
+    hasHistory,
+    rank,
+    flags: { isLeader, isFirstPick, isLastPick, isBeggarPick },
+  } = ctx
+
+  const {
+    userId,
+    displayName,
+    history,
+    currentTotalSteps,
+    currentTotalMvpa,
+    currentReceivedSteps,
+    currentReceivedMvpa,
+    currentCombinedPct,
+    currentReceivedPct,
+    isActiveThisWeek,
+    firstCompleterScore,
+    lastPlaceScore,
+    beggarScore,
+  } = candidate
+
+  const pct = Math.round(currentCombinedPct * 100)
+  const recvPct = Math.round(currentReceivedPct * 100)
+
+  const statParts = [
+    `${formatCount(currentTotalSteps)}/${formatCount(stepGoal)} steps`,
+    `${formatCount(currentTotalMvpa)}/${mvpaGoal} MVPA`,
+    `${pct}% goals`,
+  ]
+  if (currentReceivedSteps > 0 || currentReceivedMvpa > 0) {
+    statParts.push(
+      `${formatCount(currentReceivedSteps)} recv steps · ${formatCount(currentReceivedMvpa)} recv MVPA (${recvPct}%)`
+    )
+  }
+  if (hasHistory && history.weeksSeen > 0) {
+    statParts.push(
+      `avg ${formatCount(history.avgTotalSteps)} st/wk · ${formatCount(history.avgTotalMvpa)} MVPA/wk · ${history.completionWeeks} goal week(s)`
+    )
+  }
+
+  const labels = []
+  if (isLeader) labels.push({ emoji: '👑', label: 'Leader' })
+  if (isFirstPick) labels.push({ emoji: '🪖', label: 'First pick' })
+  if (isLastPick) labels.push({ emoji: '🐌', label: 'Last pick' })
+  if (isBeggarPick) labels.push({ emoji: '♿', label: 'Beggar pick' })
+  if (pct >= 100) labels.push({ emoji: '✅', label: 'Goals met' })
+
+  let outlook
+  if (!isActiveThisWeek) {
+    outlook =
+      'No activity this week. Next week outlook depends on showing up — currently projected to trail the group.'
+  } else if (isFirstPick && pct >= 100) {
+    outlook = `Already at ${pct}% of both goals. Top forecast to finish first next week if this pace continues.`
+  } else if (isFirstPick) {
+    outlook = `Leading the first-to-finish forecast at ${pct}% progress. Strong candidate to complete both goals earliest next week.`
+  } else if (isLastPick && pct >= 100) {
+    outlook = `Goals met this week (${pct}%) but lowest relative output score — watch for a slower start next week.`
+  } else if (isLastPick) {
+    outlook = `Lowest combined progress at ${pct}%. Most at risk of finishing last next week without a pace increase.`
+  } else if (isBeggarPick) {
+    outlook = `Highest donation-receipt forecast (${recvPct}% of goals from rewards). Likely Beggar next week if handouts continue.`
+  } else if (isLeader && pct >= 100) {
+    outlook = `#${rank} on the board with both goals done. Favourite to stay competitive next week.`
+  } else if (isLeader) {
+    outlook = `#${rank} this week at ${pct}% of goals. Momentum favours a strong finish next week.`
+  } else if (pct >= 100) {
+    outlook = `Both goals cleared (${pct}%). Reliable finisher — expect another solid week if habits hold.`
+  } else if (pct >= 50) {
+    outlook = `${pct}% toward goals. Mid-to-strong tier — could push for an early finish next week with consistent logging.`
+  } else if (pct > 0) {
+    outlook = `${pct}% progress so far. Needs a step-up next week to avoid falling behind the pack.`
+  } else {
+    outlook = 'Minimal progress recorded. Next week is an open reset.'
+  }
+
+  const firstCompleterLikelihood = Math.min(
+    95,
+    Math.round(
+      20 +
+        history.firstCompleterRate * 30 +
+        history.completionRate * 20 +
+        currentCombinedPct * 35 +
+        (isActiveThisWeek ? 5 : 0)
+    )
+  )
+  const lastPlaceLikelihood = Math.min(
+    95,
+    Math.round(
+      20 +
+        history.lastPlaceRate * 35 +
+        (hasHistory ? (1 - history.avgCombinedPct) * 15 : 0) +
+        (1 - currentCombinedPct) * 25
+    )
+  )
+  const beggarLikelihood = Math.min(
+    95,
+    Math.round(
+      15 + history.beggarRate * 40 + history.avgReceivedPct * 25 + currentReceivedPct * 30
+    )
+  )
+
+  return {
+    userId,
+    displayName,
+    rank,
+    statsLine: statParts.join(' · '),
+    outlook,
+    labels,
+    scores: {
+      firstCompleter: firstCompleterLikelihood,
+      lastPlace: lastPlaceLikelihood,
+      beggar: beggarLikelihood,
+    },
+  }
+}
+
 export function buildChallengePredictions({
   profiles,
   activities,
@@ -276,6 +396,8 @@ export function buildChallengePredictions({
 
     const currentTotalSteps = current.total_steps ?? 0
     const currentTotalMvpa = current.total_mvpa ?? 0
+    const currentReceivedSteps = current.received_steps ?? 0
+    const currentReceivedMvpa = current.received_mvpa ?? 0
     const currentOutput = currentTotalSteps + currentTotalMvpa * 350
     const currentCombinedPct = combinedGoalPct(current, stepGoal, mvpaGoal)
     const currentReceivedPct = receivedGoalPct(current, stepGoal, mvpaGoal)
@@ -305,6 +427,8 @@ export function buildChallengePredictions({
       history,
       currentTotalSteps,
       currentTotalMvpa,
+      currentReceivedSteps,
+      currentReceivedMvpa,
       currentCombinedPct,
       currentReceivedPct,
       isActiveThisWeek,
@@ -326,6 +450,25 @@ export function buildChallengePredictions({
   ).length
 
   const leader = currentStats[0]
+  const rankByUser = new Map(currentStats.map((row, index) => [row.user_id, index + 1]))
+
+  const playerPredictions = candidates
+    .map((candidate) =>
+      buildPlayerPrediction(candidate, {
+        stepGoal,
+        mvpaGoal,
+        hasHistory,
+        rank: rankByUser.get(candidate.userId) ?? profiles.length,
+        flags: {
+          isLeader: leader?.user_id === candidate.userId,
+          isFirstPick: firstCompleter?.userId === candidate.userId,
+          isLastPick: lastPlace?.userId === candidate.userId,
+          isBeggarPick: beggar?.userId === candidate.userId,
+        },
+      })
+    )
+    .sort((a, b) => a.rank - b.rank || a.displayName.localeCompare(b.displayName))
+
   const summaryParts = [
     `${activeThisWeek}/${profiles.length} players active this week.`,
     completedThisWeek > 0
@@ -344,6 +487,7 @@ export function buildChallengePredictions({
     hasHistory,
     historyWeekCount: historyWeeks.length,
     updatedAt: Date.now(),
+    playerPredictions,
     firstCompleter: firstCompleter
       ? {
           userId: firstCompleter.userId,

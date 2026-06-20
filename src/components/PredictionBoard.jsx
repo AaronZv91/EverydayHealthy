@@ -24,6 +24,42 @@ function PredictionCard({ icon, title, prediction, accentClass }) {
   )
 }
 
+function PlayerPredictionRow({ player, isCurrentUser }) {
+  return (
+    <li
+      className={`rounded-xl border px-3 py-3 ${
+        isCurrentUser
+          ? 'border-brand-500/30 bg-brand-950/15'
+          : 'border-slate-800 bg-slate-800/35'
+      }`}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-200">
+          {player.rank}
+        </span>
+        <p className="font-semibold text-slate-100">{player.displayName}</p>
+        {player.labels.map((tag) => (
+          <span
+            key={tag.label}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+          >
+            {tag.emoji} {tag.label}
+          </span>
+        ))}
+      </div>
+      <p className="mb-2 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
+      <p className="mb-2 text-sm leading-relaxed text-slate-300">{player.outlook}</p>
+      <div className="flex flex-wrap gap-2 text-[10px] text-slate-500">
+        <span>First {player.scores.firstCompleter}%</span>
+        <span>·</span>
+        <span>Last {player.scores.lastPlace}%</span>
+        <span>·</span>
+        <span>Beggar {player.scores.beggar}%</span>
+      </div>
+    </li>
+  )
+}
+
 export default function PredictionBoard({ predictions, loading, refreshing, currentUserId }) {
   if (loading) {
     return (
@@ -61,6 +97,11 @@ export default function PredictionBoard({ predictions, loading, refreshing, curr
     ...predictions.beggar,
     displayName: highlightYou(predictions.beggar.displayName, predictions.beggar.userId),
   }
+
+  const playerPredictions = (predictions.playerPredictions ?? []).map((player) => ({
+    ...player,
+    displayName: highlightYou(player.displayName, player.userId),
+  }))
 
   return (
     <section className={`card space-y-4 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
@@ -104,6 +145,23 @@ export default function PredictionBoard({ predictions, loading, refreshing, curr
           prediction={beggar}
           accentClass="border-reward-500/25"
         />
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">Every player · next week</h3>
+        {playerPredictions.length === 0 ? (
+          <p className="text-center text-sm text-slate-500">No players yet</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {playerPredictions.map((player) => (
+              <PlayerPredictionRow
+                key={player.userId}
+                player={player}
+                isCurrentUser={player.userId === currentUserId}
+              />
+            ))}
+          </ul>
+        )}
       </div>
 
       <p className="text-xs text-slate-500">
