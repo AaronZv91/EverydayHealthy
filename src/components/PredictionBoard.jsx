@@ -24,6 +24,38 @@ function PredictionCard({ icon, title, prediction, accentClass }) {
   )
 }
 
+function PlayerTakeCard({ take, isCurrentUser }) {
+  return (
+    <li
+      className={`rounded-xl border px-3 py-3 ${
+        isCurrentUser
+          ? 'border-brand-500/30 bg-brand-950/15'
+          : 'border-slate-800 bg-slate-800/35'
+      }`}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-200">
+          {take.rank}
+        </span>
+        <p className="font-semibold text-slate-100">
+          {take.displayName}
+          {isCurrentUser && <span className="ml-1.5 text-xs font-normal text-brand-400">(you)</span>}
+        </p>
+        {take.tags.map((tag) => (
+          <span
+            key={tag.label}
+            className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+          >
+            {tag.emoji} {tag.label}
+          </span>
+        ))}
+      </div>
+      <p className="mb-2 font-mono text-[11px] leading-relaxed text-slate-500">{take.statsLine}</p>
+      <p className="text-sm italic leading-relaxed text-amber-200/85">"{take.roast}"</p>
+    </li>
+  )
+}
+
 export default function PredictionBoard({ predictions, loading, refreshing, currentUserId }) {
   if (loading) {
     return (
@@ -62,13 +94,18 @@ export default function PredictionBoard({ predictions, loading, refreshing, curr
     displayName: highlightYou(predictions.beggar.displayName, predictions.beggar.userId),
   }
 
+  const playerTakes = (predictions.playerTakes ?? []).map((take) => ({
+    ...take,
+    displayName: highlightYou(take.displayName, take.userId),
+  }))
+
   return (
     <section className={`card space-y-4 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
+          <h2 className="text-xl font-bold text-white">AI Trash Talk · Next Week</h2>
           <p className="mt-0.5 text-sm text-slate-400">
-            Forecast from weekly history, activity frequency, and donation patterns
+            Stats-backed roasts for every player. Purely fictional bullying.
           </p>
         </div>
         {refreshing ? (
@@ -80,8 +117,10 @@ export default function PredictionBoard({ predictions, loading, refreshing, curr
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-brand-500/20 bg-brand-950/20 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-400">Current state</p>
+      <div className="rounded-xl border border-amber-500/20 bg-amber-950/15 px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-400/90">
+          Oracle says
+        </p>
         <p className="mt-1 text-sm leading-relaxed text-slate-300">{predictions.summary}</p>
       </div>
 
@@ -104,6 +143,23 @@ export default function PredictionBoard({ predictions, loading, refreshing, curr
           prediction={beggar}
           accentClass="border-reward-500/25"
         />
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">Player-by-player breakdown</h3>
+        {playerTakes.length === 0 ? (
+          <p className="text-center text-sm text-slate-500">No players to roast yet</p>
+        ) : (
+          <ul className="space-y-2.5">
+            {playerTakes.map((take) => (
+              <PlayerTakeCard
+                key={take.userId}
+                take={take}
+                isCurrentUser={take.userId === currentUserId}
+              />
+            ))}
+          </ul>
+        )}
       </div>
 
       <p className="text-xs text-slate-500">
