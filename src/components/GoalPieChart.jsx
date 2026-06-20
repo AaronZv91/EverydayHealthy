@@ -2,9 +2,14 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { formatNumber, formatPercent } from '../lib/weekUtils'
 
 const PIE_COLORS = {
-  self: '#06b6d4',
-  received: '#eab308',
-  remaining: '#334155',
+  self: '#7dd3fc',
+  received: '#fde68a',
+  remaining: '#64748b',
+}
+
+const PIE_FILL_OPACITY = {
+  compact: 0.38,
+  default: 0.52,
 }
 
 export function buildGoalPieData(self, received, goal) {
@@ -69,7 +74,13 @@ export default function GoalPieChart({ title, self, received, goal, unit, compac
                 stroke="none"
               >
                 {data.map((entry) => (
-                  <Cell key={entry.name} fill={entry.color} />
+                  <Cell
+                    key={entry.name}
+                    fill={entry.color}
+                    fillOpacity={PIE_FILL_OPACITY.compact}
+                    stroke="rgb(15 23 42 / 0.35)"
+                    strokeWidth={1}
+                  />
                 ))}
               </Pie>
               <Tooltip content={<GoalPieTooltip unit={unit} />} />
@@ -77,12 +88,12 @@ export default function GoalPieChart({ title, self, received, goal, unit, compac
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span
-              className={`text-xs font-bold leading-none ${isComplete ? 'text-emerald-400' : 'text-slate-100'}`}
+              className={`text-xs font-semibold leading-none ${isComplete ? 'text-emerald-400/80' : 'text-slate-300'}`}
             >
               {pct}%
             </span>
             {isComplete && (
-              <span className="mt-0.5 text-[8px] font-semibold uppercase text-emerald-400">Done</span>
+              <span className="mt-0.5 text-[8px] font-medium uppercase text-emerald-400/70">Done</span>
             )}
           </div>
         </div>
@@ -114,7 +125,13 @@ export default function GoalPieChart({ title, self, received, goal, unit, compac
               stroke="none"
             >
               {data.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
+                <Cell
+                  key={entry.name}
+                  fill={entry.color}
+                  fillOpacity={PIE_FILL_OPACITY.default}
+                  stroke="rgb(15 23 42 / 0.35)"
+                  strokeWidth={1}
+                />
               ))}
             </Pie>
             <Tooltip content={<GoalPieTooltip unit={unit} />} />

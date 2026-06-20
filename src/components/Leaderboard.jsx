@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import GoalPieChart from './GoalPieChart'
+import GoalPieChart, { PIE_COLORS } from './GoalPieChart'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 
@@ -298,15 +298,24 @@ export default function Leaderboard({
               Weekly goal
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-500" />
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-sm"
+                style={{ backgroundColor: PIE_COLORS.self, opacity: 0.45 }}
+              />
               Pie: self
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-sm"
+                style={{ backgroundColor: PIE_COLORS.received, opacity: 0.45 }}
+              />
               Pie: received
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-slate-600" />
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-sm"
+                style={{ backgroundColor: PIE_COLORS.remaining, opacity: 0.35 }}
+              />
               Pie: remaining
             </span>
           </>
