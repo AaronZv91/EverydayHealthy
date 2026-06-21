@@ -6,6 +6,7 @@ function fingerprintPayload(predictions) {
   return {
     hasHistory: predictions.hasHistory,
     historyWeekCount: predictions.historyWeekCount,
+    historicalWeekSummaries: predictions.historicalWeekSummaries ?? [],
     firstCompleter: predictions.firstCompleter
       ? {
           userId: predictions.firstCompleter.userId,
@@ -29,6 +30,8 @@ function fingerprintPayload(predictions) {
       rank: player.rank,
       statsLine: player.statsLine,
       labels: player.labels.map((tag) => tag.label),
+      trend: player.trend,
+      historyLine: player.historyLine,
       scores: player.scores,
     })),
   }
@@ -45,6 +48,16 @@ export function buildGeminiPayload(predictions) {
     summaryContext: {
       hasHistory: predictions.hasHistory,
       historyWeekCount: predictions.historyWeekCount,
+      historicalWeekSummaries: (predictions.historicalWeekSummaries ?? []).map((week) => ({
+        week: week.week,
+        leader: week.leader,
+        leaderGoalPct: week.leaderGoalPct,
+        firstCompleter: week.firstCompleter,
+        beggar: week.beggar,
+        lastPlace: week.lastPlace,
+        completions: week.completions,
+        activePlayers: week.activePlayers,
+      })),
     },
     picks: {
       firstCompleter: predictions.firstCompleter
@@ -72,6 +85,8 @@ export function buildGeminiPayload(predictions) {
       rank: player.rank,
       statsLine: player.statsLine,
       labels: player.labels.map((tag) => tag.label),
+      trend: player.trend,
+      historyLine: player.historyLine,
       scores: player.scores,
     })),
   }

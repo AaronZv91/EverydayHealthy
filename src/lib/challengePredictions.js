@@ -52,11 +52,77 @@ function createEmptyMetrics(profile) {
     sumReceivedPct: 0,
     sumActivityCount: 0,
     sumRewardsReceived: 0,
+    weeklySnapshots: [],
+  }
+}
+
+function computeTrendMetrics(snapshots) {
+  if (!snapshots.length) {
+    return {
+      label: 'No history',
+      momentum: 0,
+      combinedPctDelta: 0,
+      rankDelta: 0,
+      vsAvgDelta: 0,
+      recentWeeks: [],
+    }
+  }
+
+  const recentWeeks = snapshots.slice(-3).map((week) => ({
+    week: week.week,
+    rank: week.rank,
+    goalPct: Math.round(week.combinedPct * 100),
+    completedGoals: week.completedGoals,
+    titles: [
+      week.wasFirst ? 'first' : null,
+      week.wasLast ? 'last' : null,
+      week.wasBeggar ? 'beggar' : null,
+    ].filter(Boolean),
+  }))
+
+  if (snapshots.length === 1) {
+    return {
+      label: 'One past week',
+      momentum: 0,
+      combinedPctDelta: 0,
+      rankDelta: 0,
+      vsAvgDelta: 0,
+      recentWeeks,
+    }
+  }
+
+  const last = snapshots[snapshots.length - 1]
+  const prev = snapshots[snapshots.length - 2]
+  const avgCombined =
+    snapshots.reduce((sum, week) => sum + week.combinedPct, 0) / snapshots.length
+  const combinedPctDelta = last.combinedPct - prev.combinedPct
+  const rankDelta = prev.rank - last.rank
+  const vsAvgDelta = last.combinedPct - avgCombined
+  const momentum = Math.max(
+    -1,
+    Math.min(1, combinedPctDelta * 0.55 + rankDelta * 0.08 + vsAvgDelta * 0.35)
+  )
+
+  let label = 'Steady'
+  if (momentum > 0.12) label = 'Heating up'
+  else if (momentum < -0.12) label = 'Cooling off'
+  else if (combinedPctDelta > 0.08) label = 'Improving'
+  else if (combinedPctDelta < -0.08) label = 'Slipping'
+
+  return {
+    label,
+    momentum,
+    combinedPctDelta,
+    rankDelta,
+    vsAvgDelta,
+    recentWeeks,
   }
 }
 
 function finalizeMetrics(row, weekCount) {
   const weeks = Math.max(weekCount, 1)
+  const trend = computeTrendMetrics(row.weeklySnapshots)
+
   return {
     ...row,
     avgTotalSteps: row.sumTotalSteps / weeks,
@@ -71,7 +137,55 @@ function finalizeMetrics(row, weekCount) {
     avgReceivedPct: row.sumReceivedPct / weeks,
     avgActivityCount: row.sumActivityCount / weeks,
     avgRewardsReceived: row.sumRewardsReceived / weeks,
+    trend,
   }
+}
+
+function buildHistoricalWeekSummaries(historyWeeks, profiles, activities, rewards, stepGoal, mvpaGoal) {
+  return historyWeeks.map((week) => {
+    const weekStats = sortChallengeLeaderboard(
+      buildChallengeLeaderboard(profiles, activities, rewards, week)
+    )
+    const firstCompleterId = findFirstDualGoalAchieverUserId({
+      activities,
+      rewards,
+      weekStart: week,
+      stepGoal,
+      mvpaGoal,
+    })
+    const beggarId = findTopReceiverUserId(weekStats, { stepGoal, mvpaGoal })
+    const lastUser = weekStats[weekStats.length - 1]
+    const leader = weekStats[0]
+    const completions = weekStats.filter(
+      (row) => (row.total_steps ?? 0) >= stepGoal && (row.total_mvpa ?? 0) >= mvpaGoal
+    ).length
+
+    return {
+      week,
+      leader: leader?.display_name ?? null,
+      leaderGoalPct: leader
+        ? Math.round(combinedGoalPct(leader, stepGoal, mvpaGoal) * 100)
+        : 0,
+      firstCompleter: weekStats.find((row) => row.user_id === firstCompleterId)?.display_name ?? null,
+      beggar: weekStats.find((row) => row.user_id === beggarId)?.display_name ?? null,
+      lastPlace: lastUser?.display_name ?? null,
+      completions,
+      activePlayers: weekStats.filter(
+        (row) => (row.total_steps ?? 0) > 0 || (row.total_mvpa ?? 0) > 0
+      ).length,
+    }
+  })
+}
+
+function formatTrendHistory(trend) {
+  if (!trend.recentWeeks.length) return 'no past weeks'
+  return trend.recentWeeks
+    .map((week) => {
+      const titles = week.titles.length ? ` · ${week.titles.join('/')}` : ''
+      const goals = week.completedGoals ? ' · goals met' : ''
+      return `${week.week.slice(5)}: rank #${week.rank} · ${week.goalPct}%${goals}${titles}`
+    })
+    .join(' | ')
 }
 
 function pickTopScore(candidates, scoreKey) {
@@ -140,6 +254,7 @@ function buildFirstCompleterReason(candidate, hasHistory) {
     history.completionWeeks > 0
       ? `Hit both goals in ${history.completionWeeks} past week(s).`
       : null,
+    history.trend?.label ? `Trend: ${history.trend.label}.` : null,
     isActiveThisWeek
       ? `This week: ${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA min (${Math.round(currentCombinedPct * 100)}%).`
       : null,
@@ -166,6 +281,7 @@ function buildLastPlaceReason(candidate, hasHistory) {
       ? `Finished last ${history.lastPlaceWeeks} time(s) before.`
       : 'Lowest typical weekly output in past weeks.',
     `Historically averages ${formatCount(history.avgTotalSteps)} steps and ${formatCount(history.avgTotalMvpa)} MVPA min per week.`,
+    history.trend?.label ? `Trend: ${history.trend.label}.` : null,
     isActiveThisWeek
       ? `This week so far: ${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA min.`
       : 'No activity yet this week.',
@@ -192,6 +308,7 @@ function buildBeggarReason(candidate, hasHistory) {
     history.avgRewardsReceived > 0
       ? `Averages ${history.avgRewardsReceived.toFixed(1)} rewards received per week.`
       : null,
+    history.trend?.label ? `Trend: ${history.trend.label}.` : null,
     currentReceivedPct > 0
       ? `${Math.round(currentReceivedPct * 100)}% of weekly goals received as donations this week.`
       : null,
@@ -240,6 +357,11 @@ function buildPlayerPrediction(candidate, ctx) {
     statParts.push(
       `avg ${formatCount(history.avgTotalSteps)} st/wk · ${formatCount(history.avgTotalMvpa)} MVPA/wk · ${history.completionWeeks} goal week(s)`
     )
+    statParts.push(`trend ${history.trend?.label ?? 'steady'}`)
+    const historyLine = formatTrendHistory(history.trend)
+    if (historyLine !== 'no past weeks') {
+      statParts.push(`history ${historyLine}`)
+    }
   }
 
   const labels = []
@@ -250,33 +372,34 @@ function buildPlayerPrediction(candidate, ctx) {
   if (pct >= 100) labels.push({ emoji: '✅', label: 'Goals met' })
 
   let outlook
+  const trendNote = history.trend?.label ? ` Trend: ${history.trend.label}.` : ''
   if (!isActiveThisWeek) {
-    outlook =
-      'No activity this week. Next week outlook depends on showing up — currently projected to trail the group.'
+    outlook = `No activity this week.${trendNote} Next week outlook depends on showing up — currently projected to trail the group.`
   } else if (isFirstPick && pct >= 100) {
-    outlook = `Already at ${pct}% of both goals. Top forecast to finish first next week if this pace continues.`
+    outlook = `Already at ${pct}% of both goals.${trendNote} Top forecast to finish first next week if this pace continues.`
   } else if (isFirstPick) {
-    outlook = `Leading the first-to-finish forecast at ${pct}% progress. Strong candidate to complete both goals earliest next week.`
+    outlook = `Leading the first-to-finish forecast at ${pct}% progress.${trendNote} Strong candidate to complete both goals earliest next week.`
   } else if (isLastPick && pct >= 100) {
-    outlook = `Goals met this week (${pct}%) but lowest relative output score — watch for a slower start next week.`
+    outlook = `Goals met this week (${pct}%) but lowest relative output score.${trendNote} Watch for a slower start next week.`
   } else if (isLastPick) {
-    outlook = `Lowest combined progress at ${pct}%. Most at risk of finishing last next week without a pace increase.`
+    outlook = `Lowest combined progress at ${pct}%.${trendNote} Most at risk of finishing last next week without a pace increase.`
   } else if (isBeggarPick) {
-    outlook = `Highest donation-receipt forecast (${recvPct}% of goals from rewards). Likely Beggar next week if handouts continue.`
+    outlook = `Highest donation-receipt forecast (${recvPct}% of goals from rewards).${trendNote} Likely Beggar next week if handouts continue.`
   } else if (isLeader && pct >= 100) {
-    outlook = `#${rank} on the board with both goals done. Favourite to stay competitive next week.`
+    outlook = `#${rank} on the board with both goals done.${trendNote} Favourite to stay competitive next week.`
   } else if (isLeader) {
-    outlook = `#${rank} this week at ${pct}% of goals. Momentum favours a strong finish next week.`
+    outlook = `#${rank} this week at ${pct}% of goals.${trendNote} Momentum favours a strong finish next week.`
   } else if (pct >= 100) {
-    outlook = `Both goals cleared (${pct}%). Reliable finisher — expect another solid week if habits hold.`
+    outlook = `Both goals cleared (${pct}%).${trendNote} Reliable finisher — expect another solid week if habits hold.`
   } else if (pct >= 50) {
-    outlook = `${pct}% toward goals. Mid-to-strong tier — could push for an early finish next week with consistent logging.`
+    outlook = `${pct}% toward goals.${trendNote} Mid-to-strong tier — could push for an early finish next week with consistent logging.`
   } else if (pct > 0) {
-    outlook = `${pct}% progress so far. Needs a step-up next week to avoid falling behind the pack.`
+    outlook = `${pct}% progress so far.${trendNote} Needs a step-up next week to avoid falling behind the pack.`
   } else {
-    outlook = 'Minimal progress recorded. Next week is an open reset.'
+    outlook = `Minimal progress recorded.${trendNote} Next week is an open reset.`
   }
 
+  const trendMomentum = history.trend?.momentum ?? 0
   const firstCompleterLikelihood = Math.min(
     95,
     Math.round(
@@ -284,6 +407,7 @@ function buildPlayerPrediction(candidate, ctx) {
         history.firstCompleterRate * 30 +
         history.completionRate * 20 +
         currentCombinedPct * 35 +
+        trendMomentum * 12 +
         (isActiveThisWeek ? 5 : 0)
     )
   )
@@ -293,13 +417,18 @@ function buildPlayerPrediction(candidate, ctx) {
       20 +
         history.lastPlaceRate * 35 +
         (hasHistory ? (1 - history.avgCombinedPct) * 15 : 0) +
-        (1 - currentCombinedPct) * 25
+        (1 - currentCombinedPct) * 25 -
+        trendMomentum * 10
     )
   )
   const beggarLikelihood = Math.min(
     95,
     Math.round(
-      15 + history.beggarRate * 40 + history.avgReceivedPct * 25 + currentReceivedPct * 30
+      15 +
+        history.beggarRate * 40 +
+        history.avgReceivedPct * 25 +
+        currentReceivedPct * 30 +
+        Math.max(0, -(history.trend?.combinedPctDelta ?? 0)) * 8
     )
   )
 
@@ -310,6 +439,8 @@ function buildPlayerPrediction(candidate, ctx) {
     statsLine: statParts.join(' · '),
     outlook,
     labels,
+    trend: history.trend?.label ?? 'No history',
+    historyLine: formatTrendHistory(history.trend),
     scores: {
       firstCompleter: firstCompleterLikelihood,
       lastPlace: lastPlaceLikelihood,
@@ -354,39 +485,62 @@ export function buildChallengePredictions({
       const row = metricsMap.get(stats.user_id)
       if (!row) continue
 
+      const rank = weekStats.findIndex((entry) => entry.user_id === stats.user_id) + 1
+      const combinedPct = combinedGoalPct(stats, stepGoal, mvpaGoal)
+      const completedGoals =
+        (stats.total_steps ?? 0) >= stepGoal && (stats.total_mvpa ?? 0) >= mvpaGoal
+
       row.weeksSeen += 1
       row.sumTotalSteps += stats.total_steps ?? 0
       row.sumTotalMvpa += stats.total_mvpa ?? 0
-      row.sumCombinedPct += combinedGoalPct(stats, stepGoal, mvpaGoal)
+      row.sumCombinedPct += combinedPct
       row.sumReceivedSteps += stats.received_steps ?? 0
       row.sumReceivedMvpa += stats.received_mvpa ?? 0
       row.sumReceivedPct += receivedGoalPct(stats, stepGoal, mvpaGoal)
 
-      if ((stats.total_steps ?? 0) >= stepGoal && (stats.total_mvpa ?? 0) >= mvpaGoal) {
-        row.completionWeeks += 1
-      }
+      if (completedGoals) row.completionWeeks += 1
       if (stats.user_id === firstCompleterId) row.firstCompleterWeeks += 1
       if (stats.user_id === beggarId) row.beggarWeeks += 1
       if (stats.user_id === lastUser?.user_id) row.lastPlaceWeeks += 1
 
       row.sumActivityCount += weekActivities.filter((a) => a.user_id === stats.user_id).length
       row.sumRewardsReceived += weekRewards.filter((r) => r.receiver_id === stats.user_id).length
+
+      row.weeklySnapshots.push({
+        week,
+        rank,
+        combinedPct,
+        completedGoals,
+        wasFirst: stats.user_id === firstCompleterId,
+        wasLast: stats.user_id === lastUser?.user_id,
+        wasBeggar: stats.user_id === beggarId,
+      })
     }
   }
+
+  const historicalWeekSummaries = buildHistoricalWeekSummaries(
+    historyWeeks,
+    profiles,
+    activities,
+    rewards,
+    stepGoal,
+    mvpaGoal
+  )
 
   const currentStats = sortChallengeLeaderboard(
     buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
   )
   const currentByUser = new Map(currentStats.map((row) => [row.user_id, row]))
 
-  const historyWeight = hasHistory ? 0.72 : 0
-  const currentWeight = hasHistory ? 0.28 : 1
+  const historyWeight = hasHistory ? Math.min(0.8, 0.58 + historyWeeks.length * 0.05) : 0
+  const currentWeight = hasHistory ? 1 - historyWeight : 1
 
   const candidates = profiles.map((profile) => {
     const history = finalizeMetrics(
       metricsMap.get(profile.id) ?? createEmptyMetrics(profile),
       historyWeeks.length || 1
     )
+    const momentum = history.trend?.momentum ?? 0
     const current = currentByUser.get(profile.id) ?? {
       total_steps: 0,
       total_mvpa: 0,
@@ -408,18 +562,21 @@ export function buildChallengePredictions({
       history.completionRate * historyWeight * 60 +
       history.avgCombinedPct * historyWeight * 40 +
       currentCombinedPct * currentWeight * 100 +
+      momentum * historyWeight * 25 +
       (isActiveThisWeek ? 5 : 0)
 
     const lastPlaceScore =
       history.avgTotalSteps * historyWeight +
       history.avgTotalMvpa * historyWeight * 350 +
-      currentOutput * currentWeight
+      currentOutput * currentWeight -
+      momentum * historyWeight * 8000
 
     const beggarScore =
       history.beggarRate * historyWeight * 100 +
       history.avgReceivedPct * historyWeight * 80 +
       history.avgRewardsReceived * historyWeight * 8 +
-      currentReceivedPct * currentWeight * 100
+      currentReceivedPct * currentWeight * 100 +
+      Math.max(0, -(history.trend?.combinedPctDelta ?? 0)) * historyWeight * 40
 
     return {
       userId: profile.id,
@@ -478,7 +635,7 @@ export function buildChallengePredictions({
       ? `${leader.display_name} leads the current board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps.`
       : null,
     hasHistory
-      ? `Forecasts blend ${historyWeeks.length} past week(s) with this week's pace.`
+      ? `Forecasts blend ${historyWeeks.length} past week(s), weekly results, and trend with this week's pace.`
       : 'Forecasts rely mostly on this week because history is limited.',
   ]
 
@@ -486,6 +643,7 @@ export function buildChallengePredictions({
     summary: summaryParts.filter(Boolean).join(' '),
     hasHistory,
     historyWeekCount: historyWeeks.length,
+    historicalWeekSummaries,
     updatedAt: Date.now(),
     playerPredictions,
     firstCompleter: firstCompleter
@@ -498,7 +656,8 @@ export function buildChallengePredictions({
               40 +
                 firstCompleter.history.firstCompleterRate * 30 +
                 firstCompleter.history.completionRate * 20 +
-                firstCompleter.currentCombinedPct * 10
+                firstCompleter.currentCombinedPct * 10 +
+                (firstCompleter.history.trend?.momentum ?? 0) * 8
             )
           ),
           reason: buildFirstCompleterReason(firstCompleter, hasHistory),
@@ -514,7 +673,8 @@ export function buildChallengePredictions({
               40 +
                 lastPlace.history.lastPlaceRate * 35 +
                 (hasHistory ? (1 - lastPlace.history.avgCombinedPct) * 15 : 0) +
-                (lastPlace.currentCombinedPct < 0.25 ? 10 : 0)
+                (lastPlace.currentCombinedPct < 0.25 ? 10 : 0) -
+                (lastPlace.history.trend?.momentum ?? 0) * 8
             )
           ),
           reason: buildLastPlaceReason(lastPlace, hasHistory),

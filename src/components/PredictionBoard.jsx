@@ -198,7 +198,7 @@ export default function PredictionBoard({
 
       <p className="text-xs text-slate-500">
         {predictions.hasHistory
-          ? `Model uses ${predictions.historyWeekCount} completed week(s) plus this week's live pace.`
+          ? `Model uses ${predictions.historyWeekCount} past week(s), weekly results, trend, and this week's live pace.`
           : "Model uses this week's pace until more weekly history is available."}
       </p>
     </section>

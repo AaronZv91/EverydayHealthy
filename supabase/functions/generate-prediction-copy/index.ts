@@ -22,6 +22,8 @@ type PlayerPayload = {
   rank: number
   statsLine: string
   labels: string[]
+  trend: string
+  historyLine: string
   scores: {
     firstCompleter: number
     lastPlace: number
@@ -29,10 +31,22 @@ type PlayerPayload = {
   }
 }
 
+type HistoricalWeekSummary = {
+  week: string
+  leader: string | null
+  leaderGoalPct: number
+  firstCompleter: string | null
+  beggar: string | null
+  lastPlace: string | null
+  completions: number
+  activePlayers: number
+}
+
 type RequestBody = {
   summaryContext: {
     hasHistory: boolean
     historyWeekCount: number
+    historicalWeekSummaries: HistoricalWeekSummary[]
   }
   picks: {
     firstCompleter: PickPayload
@@ -72,6 +86,15 @@ function getGeminiApiKey() {
 
 function buildPrompt(body: RequestBody) {
   const { summaryContext, picks, players } = body
+  const historyBlock =
+    summaryContext.historicalWeekSummaries.length > 0
+      ? summaryContext.historicalWeekSummaries
+          .map(
+            (week) =>
+              `- ${week.week}: leader ${week.leader ?? 'n/a'} (${week.leaderGoalPct}%) · first ${week.firstCompleter ?? 'n/a'} · beggar ${week.beggar ?? 'n/a'} · last ${week.lastPlace ?? 'n/a'} · ${week.completions} completed both goals · ${week.activePlayers} active`
+          )
+          .join('\n')
+      : 'No completed past weeks yet.'
 
   return `You write short, spicy prediction copy for a weekly fitness challenge app (70,000 steps + 200 MVPA minutes per week).
 
@@ -85,9 +108,13 @@ Hard rules (never break these):
 - One or two sentences max per field
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
+Use historical week results and each player's trend/historyLine heavily — call out streaks, slumps, repeat titles, and momentum shifts when the data supports it.
 
 Context:
 - ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
+
+Past week results (oldest to newest):
+${historyBlock}
 
 Top picks (confidence = model likelihood %):
 - First to complete both goals next week: ${picks.firstCompleter ? `${picks.firstCompleter.name} (${picks.firstCompleter.confidence}%)` : 'none'}
@@ -98,7 +125,7 @@ Every player:
 ${players
   .map(
     (p) =>
-      `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%`
+      `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%`
   )
   .join('\n')}
 
