@@ -75,9 +75,16 @@ function getGeminiApiKey() {
 function buildPrompt(body: RequestBody) {
   const { summaryContext, picks, players } = body
 
-  return `You write short, fun prediction copy for a weekly fitness challenge app (70,000 steps + 200 MVPA minutes per week).
+  return `You write short, spicy prediction copy for a weekly fitness challenge app (70,000 steps + 200 MVPA minutes per week).
 
-Tone: playful and witty between workout buddies — light teasing is OK, but NO insults, cruelty, body-shaming, or mean trash talk. Stay encouraging. One or two sentences max per field.
+Tone: TRASHY sports-banters between close friends — roast their stats, pace, donation habits, and gym excuses hard. Be funny, competitive, and a little savage. Think fantasy-league group chat, not a HR email.
+
+Hard rules (never break these):
+- NO personal attacks (人身攻击): no insults about someone's body, appearance, intelligence, worth, race, gender, age, health conditions, or character
+- NO cruelty, slurs, bullying, or humiliation — keep it playful
+- Roast BEHAVIOUR and NUMBERS only (lazy logging, begging for steps, snail pace, goal-dodging)
+- Everyone should still feel like they're in on the joke
+- One or two sentences max per field
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
 
@@ -155,8 +162,8 @@ async function geminiFetch(
   const payload = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: useJsonMime
-      ? { temperature: 0.9, responseMimeType: 'application/json' }
-      : { temperature: 0.9 },
+      ? { temperature: 1.0, responseMimeType: 'application/json' }
+      : { temperature: 1.0 },
   }
 
   const headerResponse = await fetch(url, {
