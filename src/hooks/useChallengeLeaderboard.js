@@ -7,6 +7,7 @@ import {
   sortChallengeLeaderboard,
 } from '../lib/challengeStats'
 import { buildChallengePredictions } from '../lib/challengePredictions'
+import { createPredictionCopyScheduler } from '../lib/predictionCopy'
 import { WEEKLY_GOALS, requireSupabase } from '../lib/supabaseClient'
 
 const REFETCH_DEBOUNCE_MS = 350
@@ -19,8 +20,17 @@ export function useChallengeLeaderboard() {
   const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [aiCopyLoading, setAiCopyLoading] = useState(false)
   const isInitialLoad = useRef(true)
   const debounceTimer = useRef(null)
+  const copyScheduler = useRef(null)
+
+  if (!copyScheduler.current) {
+    copyScheduler.current = createPredictionCopyScheduler({
+      onLoadingChange: setAiCopyLoading,
+      onCopyReady: (merged) => setPredictions(merged),
+    })
+  }
 
   const fetchLeaderboard = useCallback(async () => {
     const isInitial = isInitialLoad.current
@@ -54,16 +64,18 @@ export function useChallengeLeaderboard() {
           mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
         })
       )
-      setPredictions(
-        buildChallengePredictions({
-          profiles,
-          activities,
-          rewards,
-          weekStart,
-          stepGoal: WEEKLY_GOALS.steps,
-          mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
-        })
-      )
+
+      const nextPredictions = buildChallengePredictions({
+        profiles,
+        activities,
+        rewards,
+        weekStart,
+        stepGoal: WEEKLY_GOALS.steps,
+        mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+      })
+
+      setPredictions(nextPredictions)
+      copyScheduler.current.schedule(nextPredictions)
     } catch (error) {
       console.error(error)
     } finally {
@@ -102,6 +114,7 @@ export function useChallengeLeaderboard() {
 
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      copyScheduler.current?.cancel()
       client.removeChannel(channel)
     }
   }, [fetchLeaderboard, scheduleRefetch])
@@ -114,6 +127,7 @@ export function useChallengeLeaderboard() {
     predictions,
     loading,
     refreshing,
+    aiCopyLoading,
     refetch: fetchLeaderboard,
   }
 }

@@ -1,0 +1,4 @@
+# https://supabase.com/docs/guides/cli/config
+
+[functions.generate-prediction-copy]
+verify_jwt = true

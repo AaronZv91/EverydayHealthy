@@ -13,8 +13,17 @@ export default function HomePage({ user, onSignOut }) {
   const { stats, loading: statsLoading, refetch: refetchStats } = useWeeklyStats(userId)
   const { profiles, refetch: refetchProfiles } = useProfiles()
   const { rewards, loading: rewardsLoading, sendReward } = useRewards()
-  const { weeklyStats, allTimeStats, weeklySoldierUserId, weeklyBeggarUserId, predictions, loading: leaderboardLoading, refreshing: leaderboardRefreshing, refetch: refetchLeaderboard } =
-    useChallengeLeaderboard()
+  const {
+    weeklyStats,
+    allTimeStats,
+    weeklySoldierUserId,
+    weeklyBeggarUserId,
+    predictions,
+    loading: leaderboardLoading,
+    refreshing: leaderboardRefreshing,
+    aiCopyLoading,
+    refetch: refetchLeaderboard,
+  } = useChallengeLeaderboard()
   const { logActivity } = useLogActivity()
 
   async function handleRefresh() {
@@ -61,6 +70,7 @@ export default function HomePage({ user, onSignOut }) {
           predictions={predictions}
           loading={leaderboardLoading}
           refreshing={leaderboardRefreshing}
+          aiCopyLoading={aiCopyLoading}
           currentUserId={userId}
         />
 
