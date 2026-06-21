@@ -5,7 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash']
+const GEMINI_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+]
 
 type PickPayload = {
   name: string
@@ -56,6 +61,14 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+function getGeminiApiKey() {
+  return (
+    Deno.env.get('GEMINI_API_KEY')?.trim() ||
+    Deno.env.get('GOOGLE_API_KEY')?.trim() ||
+    ''
+  )
 }
 
 function buildPrompt(body: RequestBody) {
@@ -114,45 +127,98 @@ function normalizeCopyResponse(raw: CopyResponse, players: PlayerPayload[]): Cop
   }
 }
 
-async function callGeminiModel(apiKey: string, model: string, prompt: string): Promise<CopyResponse> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.9,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  )
-
-  if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(`Gemini ${model} (${response.status}): ${detail.slice(0, 400)}`)
+function extractJsonText(result: Record<string, unknown>) {
+  const blockReason = (result?.promptFeedback as { blockReason?: string })?.blockReason
+  if (blockReason) {
+    throw new Error(`Gemini blocked prompt: ${blockReason}`)
   }
 
-  const result = await response.json()
-  const text = result?.candidates?.[0]?.content?.parts?.[0]?.text
+  const candidate = (result?.candidates as Array<Record<string, unknown>>)?.[0]
+  const finishReason = candidate?.finishReason
+  const text = (candidate?.content as { parts?: Array<{ text?: string }> })?.parts?.[0]?.text
+
   if (!text) {
-    throw new Error(`Gemini ${model} returned empty content`)
+    throw new Error(`Gemini returned empty content (${finishReason ?? 'unknown finish reason'})`)
   }
 
-  const parsed = JSON.parse(text) as CopyResponse
-  if (!parsed.summary || !Array.isArray(parsed.players)) {
-    throw new Error(`Gemini ${model} returned invalid JSON shape`)
-  }
-
-  return parsed
+  return text
 }
 
-async function callGemini(apiKey: string, prompt: string, players: PlayerPayload[]): Promise<CopyResponse> {
+async function geminiFetch(
+  apiKey: string,
+  model: string,
+  prompt: string,
+  useJsonMime: boolean
+) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: useJsonMime
+      ? { temperature: 0.9, responseMimeType: 'application/json' }
+      : { temperature: 0.9 },
+  }
+
+  const headerResponse = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (headerResponse.ok) {
+    return headerResponse
+  }
+
+  if (apiKey.startsWith('AIza')) {
+    return fetch(`${url}?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  }
+
+  return headerResponse
+}
+
+async function callGeminiModel(
+  apiKey: string,
+  model: string,
+  prompt: string
+): Promise<CopyResponse> {
+  let lastError: Error | null = null
+
+  for (const useJsonMime of [true, false]) {
+    try {
+      const response = await geminiFetch(apiKey, model, prompt, useJsonMime)
+      if (!response.ok) {
+        const detail = await response.text()
+        throw new Error(`(${response.status}) ${detail.slice(0, 400)}`)
+      }
+
+      const result = await response.json()
+      const text = extractJsonText(result)
+      const parsed = JSON.parse(text) as CopyResponse
+
+      if (!parsed.summary || !Array.isArray(parsed.players)) {
+        throw new Error('invalid JSON shape')
+      }
+
+      return parsed
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+    }
+  }
+
+  throw new Error(`Gemini ${model}: ${lastError?.message ?? 'request failed'}`)
+}
+
+async function callGemini(
+  apiKey: string,
+  prompt: string,
+  players: PlayerPayload[]
+): Promise<CopyResponse> {
   let lastError: Error | null = null
 
   for (const model of GEMINI_MODELS) {
@@ -165,7 +231,7 @@ async function callGemini(apiKey: string, prompt: string, players: PlayerPayload
     }
   }
 
-  throw lastError ?? new Error('Gemini request failed')
+  throw lastError ?? new Error('Gemini request failed for all models')
 }
 
 Deno.serve(async (req) => {
@@ -178,9 +244,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const geminiKey = Deno.env.get('GEMINI_API_KEY')?.trim()
+    const geminiKey = getGeminiApiKey()
     if (!geminiKey) {
-      return jsonResponse({ error: 'GEMINI_API_KEY not configured' }, 503)
+      return jsonResponse(
+        { error: 'GEMINI_API_KEY not configured (set via: supabase secrets set GEMINI_API_KEY=...)' },
+        503
+      )
     }
 
     const authHeader = req.headers.get('Authorization')
@@ -188,11 +257,15 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return jsonResponse({ error: 'Supabase env not configured in Edge Function' }, 500)
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    })
 
     const {
       data: { user },
@@ -200,7 +273,7 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return jsonResponse({ error: 'Unauthorized' }, 401)
+      return jsonResponse({ error: authError?.message ?? 'Unauthorized' }, 401)
     }
 
     const body = (await req.json()) as RequestBody

@@ -1,4 +1,4 @@
-import { requireSupabase } from './supabaseClient'
+import { isSupabaseConfigured, requireSupabase } from './supabaseClient'
 
 const AI_COPY_DEBOUNCE_MS = 4000
 
@@ -121,21 +121,32 @@ export async function fetchPredictionCopy(predictions) {
 
   if (!session) return null
 
-  const { data, error } = await client.functions.invoke('generate-prediction-copy', {
-    body: buildGeminiPayload(predictions),
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim().replace(/\/+$/, '').replace(/\/rest\/v1$/i, '')
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+
+  if (!isSupabaseConfigured || !supabaseUrl || !anonKey) {
+    throw new Error('Supabase is not configured')
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/generate-prediction-copy`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: anonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(buildGeminiPayload(predictions)),
   })
 
-  if (error) {
-    let detail = data?.error
-    if (!detail && error?.context && typeof error.context.json === 'function') {
-      try {
-        const body = await error.context.json()
-        detail = body?.error
-      } catch {
-        // ignore parse errors
-      }
-    }
-    throw new Error(detail || error.message || 'Edge Function failed')
+  let data = null
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Edge Function failed (${response.status})`)
   }
 
   if (data?.error) throw new Error(data.error)
@@ -178,7 +189,8 @@ export function createPredictionCopyScheduler({ onLoadingChange, onCopyReady }) 
         lastAppliedHash = hash
         onCopyReady(mergePredictionCopy(predictions, copy))
       } catch (error) {
-        console.warn('Gemini prediction copy failed:', error)
+        const message = error instanceof Error ? error.message : String(error)
+        console.warn('Gemini prediction copy failed:', message)
       } finally {
         if (requestGeneration === generation) {
           onLoadingChange(false)
