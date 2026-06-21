@@ -251,7 +251,7 @@ export default function Leaderboard({
           <h2 className="text-xl font-bold text-white">Challenge Leaderboard</h2>
           <p className="mt-0.5 text-sm text-slate-400">
             {mode === 'weekly'
-              ? 'Resets every Monday · goal 70,000 steps & 200 min MVPA'
+              ? 'Resets Monday 12am SGT · goal 70,000 steps & 200 min MVPA'
               : 'All-time totals across every week'}
           </p>
         </div>

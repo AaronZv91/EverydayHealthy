@@ -1,9 +1,23 @@
--- Run in Supabase SQL Editor to deduct sent donations from challenge totals.
--- Recalculates all existing weekly and all-time stats from rewards history.
+-- One-time migration: week boundaries = Monday 00:00 Asia/Singapore (SGT).
+-- Run in Supabase SQL Editor on existing projects.
 
+-- Drop views first (they depend on get_week_start)
 drop view if exists public.all_time_user_stats;
 drop view if exists public.weekly_user_stats;
 
+drop function if exists public.get_week_start(date);
+
+create or replace function public.get_week_start(p_at timestamptz default now())
+returns date
+language sql
+stable
+as $$
+  select (date_trunc('week', (p_at at time zone 'Asia/Singapore')::timestamp))::date;
+$$;
+
+grant execute on function public.get_week_start(timestamptz) to authenticated, anon;
+
+-- Recreate stats views
 create view public.weekly_user_stats as
 select
   p.id as user_id,
@@ -91,3 +105,6 @@ left join lateral (
   from public.rewards
   where sender_id = p.id
 ) s on true;
+
+grant select on public.weekly_user_stats to authenticated, anon;
+grant select on public.all_time_user_stats to authenticated, anon;

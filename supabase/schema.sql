@@ -54,14 +54,14 @@ create index rewards_receiver_week_idx on public.rewards (receiver_id, week_star
 create index rewards_created_at_idx on public.rewards (created_at desc);
 
 -- ---------------------------------------------------------------------------
--- Helper: ISO week start (Monday)
+-- Helper: week start = Monday 00:00 Asia/Singapore (SGT)
 -- ---------------------------------------------------------------------------
-create or replace function public.get_week_start(p_date date default current_date)
+create or replace function public.get_week_start(p_at timestamptz default now())
 returns date
 language sql
 stable
 as $$
-  select date_trunc('week', p_date::timestamp)::date;
+  select (date_trunc('week', (p_at at time zone 'Asia/Singapore')::timestamp))::date;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ begin
     raise exception 'RECEIVER_NOT_FOUND';
   end if;
 
-  v_week_start := public.get_week_start(current_date);
+  v_week_start := public.get_week_start();
 
   select
     coalesce(sum(steps), 0),
@@ -223,7 +223,7 @@ begin
     v_user_id,
     coalesce(p_steps, 0),
     coalesce(p_mvpa_minutes, 0),
-    public.get_week_start(current_date),
+    public.get_week_start(),
     p_note
   )
   returning * into v_result;
@@ -239,7 +239,7 @@ create or replace view public.weekly_user_stats as
 select
   p.id as user_id,
   p.display_name,
-  public.get_week_start(current_date) as week_start,
+  public.get_week_start() as week_start,
   coalesce(a.self_steps, 0) as self_steps,
   coalesce(a.self_mvpa, 0) as self_mvpa,
   coalesce(r.received_steps, 0) as received_steps,
@@ -263,7 +263,7 @@ left join lateral (
     sum(mvpa_minutes) as self_mvpa
   from public.activities
   where user_id = p.id
-    and week_start = public.get_week_start(current_date)
+    and week_start = public.get_week_start()
 ) a on true
 left join lateral (
   select
@@ -272,7 +272,7 @@ left join lateral (
     count(*) as reward_count
   from public.rewards
   where receiver_id = p.id
-    and week_start = public.get_week_start(current_date)
+    and week_start = public.get_week_start()
 ) r on true
 left join lateral (
   select
@@ -281,7 +281,7 @@ left join lateral (
     count(*) as reward_count
   from public.rewards
   where sender_id = p.id
-    and week_start = public.get_week_start(current_date)
+    and week_start = public.get_week_start()
 ) s on true;
 
 -- ---------------------------------------------------------------------------
@@ -369,7 +369,7 @@ create policy "Rewards insert via RPC only"
 -- Grant execute on RPCs
 grant execute on function public.send_reward(uuid, text, text, integer, integer) to authenticated;
 grant execute on function public.log_activity(integer, integer, text) to authenticated;
-grant execute on function public.get_week_start(date) to authenticated, anon;
+grant execute on function public.get_week_start(timestamptz) to authenticated, anon;
 
 -- Enable Realtime for ticker and live leaderboard / predictions
 alter publication supabase_realtime add table public.rewards;
