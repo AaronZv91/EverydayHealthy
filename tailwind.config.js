@@ -18,11 +18,16 @@ export default {
       },
       animation: {
         ticker: 'ticker 12s linear infinite',
+        'gemini-bar': 'gemini-bar 1.5s ease-in-out infinite',
       },
       keyframes: {
         ticker: {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },
+        },
+        'gemini-bar': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(350%)' },
         },
       },
     },

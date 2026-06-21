@@ -1,3 +1,22 @@
+function PredictionLoadingState({ title, message }) {
+  return (
+    <section className="card">
+      <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 px-6 py-12">
+        <h2 className="text-xl font-bold text-white">{title}</h2>
+        <p className="text-center text-sm font-medium text-brand-400">{message}</p>
+        <div
+          className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-800"
+          role="progressbar"
+          aria-label={message}
+          aria-busy="true"
+        >
+          <div className="h-full w-1/3 rounded-full bg-brand-500 animate-gemini-bar motion-reduce:animate-none motion-reduce:translate-x-0" />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function PredictionCard({ icon, title, prediction, accentClass }) {
   if (!prediction) {
     return (
@@ -66,16 +85,21 @@ export default function PredictionBoard({
   aiCopyLoading,
   currentUserId,
 }) {
-  if (loading || aiCopyLoading) {
+  if (loading) {
     return (
-      <section className="card">
-        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 py-12">
-          <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
-          <p className="text-sm font-medium text-brand-400">
-            {loading ? 'Loading predictions…' : 'Gemini Reviewing'}
-          </p>
-        </div>
-      </section>
+      <PredictionLoadingState
+        title="AI Predictions · Next Week"
+        message="Loading predictions…"
+      />
+    )
+  }
+
+  if (aiCopyLoading) {
+    return (
+      <PredictionLoadingState
+        title="AI Predictions · Next Week"
+        message="Gemini Reviewing... Please wait"
+      />
     )
   }
 
