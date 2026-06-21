@@ -87,25 +87,29 @@ export function mergePredictionCopy(predictions, copy) {
     firstCompleter: predictions.firstCompleter
       ? {
           ...predictions.firstCompleter,
-          reason: copy.firstCompleterReason ?? predictions.firstCompleter.reason,
+          reason: copy.firstCompleterReason || predictions.firstCompleter.reason,
         }
       : null,
     lastPlace: predictions.lastPlace
       ? {
           ...predictions.lastPlace,
-          reason: copy.lastPlaceReason ?? predictions.lastPlace.reason,
+          reason: copy.lastPlaceReason || predictions.lastPlace.reason,
         }
       : null,
     beggar: predictions.beggar
       ? {
           ...predictions.beggar,
-          reason: copy.beggarReason ?? predictions.beggar.reason,
+          reason: copy.beggarReason || predictions.beggar.reason,
         }
       : null,
-    playerPredictions: (predictions.playerPredictions ?? []).map((player) => ({
-      ...player,
-      outlook: copy.playerOutlooks?.[player.userId] ?? player.outlook,
-    })),
+    playerPredictions: (predictions.playerPredictions ?? []).map((player) => {
+      const outlookFromArray = copy.players?.find((row) => row.userId === player.userId)?.outlook
+      const outlookFromMap = copy.playerOutlooks?.[player.userId]
+      return {
+        ...player,
+        outlook: outlookFromArray ?? outlookFromMap ?? player.outlook,
+      }
+    }),
   }
 }
 
@@ -121,7 +125,19 @@ export async function fetchPredictionCopy(predictions) {
     body: buildGeminiPayload(predictions),
   })
 
-  if (error) throw error
+  if (error) {
+    let detail = data?.error
+    if (!detail && error?.context && typeof error.context.json === 'function') {
+      try {
+        const body = await error.context.json()
+        detail = body?.error
+      } catch {
+        // ignore parse errors
+      }
+    }
+    throw new Error(detail || error.message || 'Edge Function failed')
+  }
+
   if (data?.error) throw new Error(data.error)
   return data
 }
