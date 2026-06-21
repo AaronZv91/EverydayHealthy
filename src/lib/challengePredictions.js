@@ -315,6 +315,31 @@ function buildBeggarReason(candidate, hasHistory) {
   ])
 }
 
+function buildRankByUser(currentStats, candidates, profilesCount, weekIsEmpty) {
+  if (!weekIsEmpty) {
+    return new Map(currentStats.map((row, index) => [row.user_id, index + 1]))
+  }
+
+  const ranked = [...candidates]
+    .map((candidate) => ({
+      userId: candidate.userId,
+      lastRank: candidate.history.trend?.recentWeeks?.slice(-1)[0]?.rank ?? profilesCount,
+      displayName: candidate.displayName,
+    }))
+    .sort(
+      (a, b) => a.lastRank - b.lastRank || a.displayName.localeCompare(b.displayName)
+    )
+
+  return new Map(ranked.map((row, index) => [row.userId, index + 1]))
+}
+
+function resolveLeader(currentStats) {
+  const top = currentStats[0]
+  if (!top) return null
+  if ((top.total_steps ?? 0) <= 0 && (top.total_mvpa ?? 0) <= 0) return null
+  return top
+}
+
 function buildPlayerPrediction(candidate, ctx) {
   const {
     stepGoal,
@@ -602,12 +627,13 @@ export function buildChallengePredictions({
   const activeThisWeek = currentStats.filter(
     (row) => (row.total_steps ?? 0) > 0 || (row.total_mvpa ?? 0) > 0
   ).length
+  const weekIsEmpty = activeThisWeek === 0
   const completedThisWeek = currentStats.filter(
     (row) => (row.total_steps ?? 0) >= stepGoal && (row.total_mvpa ?? 0) >= mvpaGoal
   ).length
 
-  const leader = currentStats[0]
-  const rankByUser = new Map(currentStats.map((row, index) => [row.user_id, index + 1]))
+  const leader = resolveLeader(currentStats)
+  const rankByUser = buildRankByUser(currentStats, candidates, profiles.length, weekIsEmpty)
 
   const playerPredictions = candidates
     .map((candidate) =>
@@ -631,9 +657,11 @@ export function buildChallengePredictions({
     completedThisWeek > 0
       ? `${completedThisWeek} already completed both goals.`
       : 'No one has finished both goals yet.',
-    leader
+    leader && (leader.total_steps ?? 0) > 0
       ? `${leader.display_name} leads the current board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps.`
-      : null,
+      : weekIsEmpty && hasHistory
+        ? 'No activity this week yet — board ranks follow last week until someone logs.'
+        : null,
     hasHistory
       ? `Forecasts blend ${historyWeeks.length} past week(s), weekly results, and trend with this week's pace.`
       : 'Forecasts rely mostly on this week because history is limited.',
