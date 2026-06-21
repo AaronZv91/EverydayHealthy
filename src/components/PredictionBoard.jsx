@@ -63,14 +63,18 @@ function PlayerPredictionRow({ player, isCurrentUser }) {
 export default function PredictionBoard({
   predictions,
   loading,
-  refreshing,
   aiCopyLoading,
   currentUserId,
 }) {
-  if (loading) {
+  if (loading || aiCopyLoading) {
     return (
       <section className="card">
-        <p className="text-center text-slate-400">Loading predictions…</p>
+        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 py-12">
+          <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
+          <p className="text-sm font-medium text-brand-400">
+            {loading ? 'Loading predictions…' : 'Gemini Reviewing'}
+          </p>
+        </div>
       </section>
     )
   }
@@ -110,7 +114,7 @@ export default function PredictionBoard({
   }))
 
   return (
-    <section className={`card space-y-4 transition-opacity ${refreshing ? 'opacity-80' : ''}`}>
+    <section className="card space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
@@ -118,14 +122,10 @@ export default function PredictionBoard({
             Stats-driven picks · copy by Gemini
           </p>
         </div>
-        {refreshing || aiCopyLoading ? (
-          <span className="shrink-0 rounded-full border border-brand-500/30 bg-brand-950/40 px-2.5 py-1 text-xs font-medium text-brand-400">
-            {aiCopyLoading && !refreshing ? 'Gemini writing…' : 'Updating…'}
-          </span>
-        ) : predictions.aiGenerated ? (
+        {predictions.aiGenerated ? (
           <span className="shrink-0 text-xs text-slate-500">Gemini · Live</span>
-        ) : predictions.updatedAt ? (
-          <span className="shrink-0 text-xs text-slate-500">Live</span>
+        ) : predictions.aiCopyFallback ? (
+          <span className="shrink-0 text-xs text-slate-500">Offline summary</span>
         ) : null}
       </div>
 

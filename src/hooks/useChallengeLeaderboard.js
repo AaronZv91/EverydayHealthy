@@ -27,8 +27,9 @@ export function useChallengeLeaderboard() {
 
   if (!copyScheduler.current) {
     copyScheduler.current = createPredictionCopyScheduler({
-      onLoadingChange: setAiCopyLoading,
+      onReviewingChange: setAiCopyLoading,
       onCopyReady: (merged) => setPredictions(merged),
+      onCopyError: (fallback) => setPredictions(fallback),
     })
   }
 
@@ -74,7 +75,6 @@ export function useChallengeLeaderboard() {
         mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
       })
 
-      setPredictions(nextPredictions)
       copyScheduler.current.schedule(nextPredictions)
     } catch (error) {
       console.error(error)

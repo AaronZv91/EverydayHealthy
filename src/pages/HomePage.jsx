@@ -69,7 +69,6 @@ export default function HomePage({ user, onSignOut }) {
         <PredictionBoard
           predictions={predictions}
           loading={leaderboardLoading}
-          refreshing={leaderboardRefreshing}
           aiCopyLoading={aiCopyLoading}
           currentUserId={userId}
         />

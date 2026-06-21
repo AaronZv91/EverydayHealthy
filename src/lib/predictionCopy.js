@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, requireSupabase } from './supabaseClient'
 
-const AI_COPY_DEBOUNCE_MS = 4000
+const AI_COPY_DEBOUNCE_MS = 1000
 
 function fingerprintPayload(predictions) {
   return {
@@ -153,7 +153,7 @@ export async function fetchPredictionCopy(predictions) {
   return data
 }
 
-export function createPredictionCopyScheduler({ onLoadingChange, onCopyReady }) {
+export function createPredictionCopyScheduler({ onReviewingChange, onCopyReady, onCopyError }) {
   let debounceTimer = null
   let lastAppliedHash = null
   let generation = 0
@@ -164,36 +164,45 @@ export function createPredictionCopyScheduler({ onLoadingChange, onCopyReady }) 
       debounceTimer = null
     }
     generation += 1
-    onLoadingChange(false)
+    onReviewingChange(false)
   }
 
-  function schedule(predictions) {
+  async function schedule(predictions) {
     if (debounceTimer) clearTimeout(debounceTimer)
 
     const requestGeneration = ++generation
+    const hash = await fingerprintPredictions(predictions)
+
+    if (hash === lastAppliedHash) {
+      onReviewingChange(false)
+      return
+    }
+
+    onReviewingChange(true)
 
     debounceTimer = setTimeout(async () => {
       debounceTimer = null
       if (requestGeneration !== generation) return
 
-      const hash = await fingerprintPredictions(predictions)
-      if (hash === lastAppliedHash) return
-
-      onLoadingChange(true)
-
       try {
         const copy = await fetchPredictionCopy(predictions)
         if (requestGeneration !== generation) return
-        if (!copy) return
+
+        if (!copy) {
+          onCopyError({ ...predictions, aiCopyFallback: true })
+          return
+        }
 
         lastAppliedHash = hash
         onCopyReady(mergePredictionCopy(predictions, copy))
       } catch (error) {
+        if (requestGeneration !== generation) return
         const message = error instanceof Error ? error.message : String(error)
         console.warn('Gemini prediction copy failed:', message)
+        onCopyError({ ...predictions, aiCopyFallback: true })
       } finally {
         if (requestGeneration === generation) {
-          onLoadingChange(false)
+          onReviewingChange(false)
         }
       }
     }, AI_COPY_DEBOUNCE_MS)
