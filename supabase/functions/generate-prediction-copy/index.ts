@@ -6,10 +6,11 @@ const corsHeaders = {
 }
 
 const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-8b',
 ]
 
 type PickPayload = {
@@ -219,19 +220,20 @@ async function callGemini(
   prompt: string,
   players: PlayerPayload[]
 ): Promise<CopyResponse> {
-  let lastError: Error | null = null
+  const errors: string[] = []
 
   for (const model of GEMINI_MODELS) {
     try {
       const parsed = await callGeminiModel(apiKey, model, prompt)
       return normalizeCopyResponse(parsed, players)
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error))
-      console.warn(`generate-prediction-copy: ${lastError.message}`)
+      const message = error instanceof Error ? error.message : String(error)
+      errors.push(`${model}: ${message}`)
+      console.warn(`generate-prediction-copy: ${model} failed — ${message}`)
     }
   }
 
-  throw lastError ?? new Error('Gemini request failed for all models')
+  throw new Error(errors.join(' | '))
 }
 
 Deno.serve(async (req) => {
