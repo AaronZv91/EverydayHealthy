@@ -16,6 +16,18 @@ type PickPayload = {
   confidence: number
 } | null
 
+type PlayerEvent = {
+  at: string
+  week: string
+  type: 'activity' | 'reward_sent' | 'reward_received'
+  steps: number
+  mvpa: number
+  note?: string | null
+  to?: string
+  from?: string
+  item?: string
+}
+
 type PlayerPayload = {
   userId: string
   name: string
@@ -24,6 +36,7 @@ type PlayerPayload = {
   labels: string[]
   trend: string
   historyLine: string
+  logs: PlayerEvent[]
   scores: {
     firstCompleter: number
     lastPlace: number
@@ -84,6 +97,17 @@ function getGeminiApiKey() {
   )
 }
 
+function formatEventForPrompt(event: PlayerEvent) {
+  if (event.type === 'activity') {
+    const note = event.note ? ` · note: ${event.note}` : ''
+    return `[${event.at}] activity +${event.steps} steps, +${event.mvpa} MVPA (week ${event.week})${note}`
+  }
+  if (event.type === 'reward_sent') {
+    return `[${event.at}] sent ${event.to} "${event.item}": ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
+  }
+  return `[${event.at}] received from ${event.from} "${event.item}": ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
+}
+
 function buildPrompt(body: RequestBody) {
   const { summaryContext, picks, players } = body
   const historyBlock =
@@ -108,7 +132,7 @@ Hard rules (never break these):
 - One or two sentences max per field
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
-Use historical week results and each player's trend/historyLine heavily — call out streaks, slumps, repeat titles, and momentum shifts when the data supports it.
+Use historical week results, each player's trend/historyLine, and especially their activity/reward logs (timestamps are SGT) for spicy commentary — late-night logging, Sunday panic dumps, serial donation begging, etc.
 
 Context:
 - ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
@@ -123,11 +147,16 @@ Top picks (confidence = model likelihood %):
 
 Every player:
 ${players
-  .map(
-    (p) =>
-      `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%`
-  )
-  .join('\n')}
+  .map((p) => {
+    const logLines =
+      p.logs.length > 0
+        ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
+        : '    · no logs yet'
+    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
+  Event log (chronological, SGT):
+${logLines}`
+  })
+  .join('\n\n')}
 
 Return JSON only:
 {

@@ -33,6 +33,8 @@ function fingerprintPayload(predictions) {
       trend: player.trend,
       historyLine: player.historyLine,
       scores: player.scores,
+      logs:
+        predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],
     })),
   }
 }
@@ -88,6 +90,8 @@ export function buildGeminiPayload(predictions) {
       trend: player.trend,
       historyLine: player.historyLine,
       scores: player.scores,
+      logs:
+        predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],
     })),
   }
 }

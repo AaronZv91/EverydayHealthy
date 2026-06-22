@@ -70,3 +70,19 @@ export function formatDateTime(iso) {
     minute: '2-digit',
   })
 }
+
+/** Activity/reward log timestamp for Gemini (weekday + time in SGT). */
+export function formatLogTimestamp(iso) {
+  if (!iso) return 'unknown time'
+  return (
+    new Date(iso).toLocaleString('en-US', {
+      timeZone: WEEK_TIMEZONE,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }) + ' SGT'
+  )
+}

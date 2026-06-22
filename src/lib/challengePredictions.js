@@ -4,6 +4,7 @@ import {
   findTopReceiverUserId,
   sortChallengeLeaderboard,
 } from './challengeStats'
+import { formatLogTimestamp } from './weekUtils'
 
 function normalizeWeekStart(value) {
   if (!value) return ''
@@ -186,6 +187,64 @@ function formatTrendHistory(trend) {
       return `${week.week.slice(5)}: rank #${week.rank} · ${week.goalPct}%${goals}${titles}`
     })
     .join(' | ')
+}
+
+function buildPlayerEventLogs(profiles, activities, rewards) {
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
+  const eventsByUser = new Map(profiles.map((profile) => [profile.id, []]))
+
+  for (const row of activities) {
+    const list = eventsByUser.get(row.user_id)
+    if (!list) continue
+
+    list.push({
+      at: formatLogTimestamp(row.created_at),
+      week: normalizeWeekStart(row.week_start),
+      type: 'activity',
+      steps: row.steps ?? 0,
+      mvpa: row.mvpa_minutes ?? 0,
+      note: row.note?.trim() || null,
+      sortKey: new Date(row.created_at).getTime(),
+    })
+  }
+
+  for (const row of rewards) {
+    const senderList = eventsByUser.get(row.sender_id)
+    if (senderList) {
+      senderList.push({
+        at: formatLogTimestamp(row.created_at),
+        week: normalizeWeekStart(row.week_start),
+        type: 'reward_sent',
+        to: profileById.get(row.receiver_id)?.display_name ?? 'unknown',
+        steps: row.steps ?? 0,
+        mvpa: row.mvpa_minutes ?? 0,
+        item: `${row.emoji} ${row.item_name}`,
+        sortKey: new Date(row.created_at).getTime(),
+      })
+    }
+
+    const receiverList = eventsByUser.get(row.receiver_id)
+    if (receiverList) {
+      receiverList.push({
+        at: formatLogTimestamp(row.created_at),
+        week: normalizeWeekStart(row.week_start),
+        type: 'reward_received',
+        from: profileById.get(row.sender_id)?.display_name ?? 'unknown',
+        steps: row.steps ?? 0,
+        mvpa: row.mvpa_minutes ?? 0,
+        item: `${row.emoji} ${row.item_name}`,
+        sortKey: new Date(row.created_at).getTime(),
+      })
+    }
+  }
+
+  return profiles.map((profile) => ({
+    userId: profile.id,
+    name: profile.display_name,
+    events: (eventsByUser.get(profile.id) ?? [])
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey, ...event }) => event),
+  }))
 }
 
 function pickTopScore(candidates, scoreKey) {
@@ -551,6 +610,7 @@ export function buildChallengePredictions({
     stepGoal,
     mvpaGoal
   )
+  const playerEventLogs = buildPlayerEventLogs(profiles, activities, rewards)
 
   const currentStats = sortChallengeLeaderboard(
     buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
@@ -672,6 +732,7 @@ export function buildChallengePredictions({
     hasHistory,
     historyWeekCount: historyWeeks.length,
     historicalWeekSummaries,
+    playerEventLogs,
     updatedAt: Date.now(),
     playerPredictions,
     firstCompleter: firstCompleter
