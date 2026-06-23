@@ -35,6 +35,8 @@ function fingerprintPayload(predictions) {
       historyLine: player.historyLine,
       paceLine: player.paceLine,
       recentNotes: player.recentNotes ?? [],
+      rewardLine: player.rewardLine ?? '',
+      recentRewards: player.recentRewards ?? [],
       scores: player.scores,
       logs:
         predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],
@@ -95,6 +97,8 @@ export function buildGeminiPayload(predictions) {
       historyLine: player.historyLine,
       paceLine: player.paceLine,
       recentNotes: player.recentNotes ?? [],
+      rewardLine: player.rewardLine ?? '',
+      recentRewards: player.recentRewards ?? [],
       scores: player.scores,
       logs:
         predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],

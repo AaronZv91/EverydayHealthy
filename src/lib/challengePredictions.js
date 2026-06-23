@@ -242,6 +242,8 @@ function buildPlayerEventLogs(profiles, activities, rewards) {
         to: profileById.get(row.receiver_id)?.display_name ?? 'unknown',
         steps: row.steps ?? 0,
         mvpa: row.mvpa_minutes ?? 0,
+        emoji: row.emoji ?? '',
+        itemName: row.item_name ?? '',
         item: `${row.emoji} ${row.item_name}`,
         sortKey: new Date(row.created_at).getTime(),
       })
@@ -256,6 +258,8 @@ function buildPlayerEventLogs(profiles, activities, rewards) {
         from: profileById.get(row.sender_id)?.display_name ?? 'unknown',
         steps: row.steps ?? 0,
         mvpa: row.mvpa_minutes ?? 0,
+        emoji: row.emoji ?? '',
+        itemName: row.item_name ?? '',
         item: `${row.emoji} ${row.item_name}`,
         sortKey: new Date(row.created_at).getTime(),
       })
@@ -294,6 +298,82 @@ function buildPlayerNoteMetrics(userId, activities, currentWeek) {
     excuseCount,
     commitmentCount,
   }
+}
+
+function buildPlayerRewardDetails(profiles, rewards, currentWeek) {
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]))
+  const byUser = new Map(
+    profiles.map((profile) => [profile.id, { receivedThisWeek: [], sentThisWeek: [], recent: [] }])
+  )
+
+  const sortedRewards = [...rewards].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+
+  for (const row of sortedRewards) {
+    const itemLabel = `${row.emoji ?? ''} ${row.item_name ?? ''}`.trim()
+    const at = formatLogTimestamp(row.created_at)
+    const week = normalizeWeekStart(row.week_start)
+    const isCurrentWeek = week === currentWeek
+
+    const receiverBucket = byUser.get(row.receiver_id)
+    if (receiverBucket) {
+      const detail = {
+        at,
+        week,
+        emoji: row.emoji ?? '',
+        itemName: row.item_name ?? '',
+        item: itemLabel,
+        from: profileById.get(row.sender_id)?.display_name ?? 'unknown',
+        steps: row.steps ?? 0,
+        mvpa: row.mvpa_minutes ?? 0,
+        type: 'received',
+      }
+      receiverBucket.recent.push(detail)
+      if (isCurrentWeek) receiverBucket.receivedThisWeek.push(detail)
+    }
+
+    const senderBucket = byUser.get(row.sender_id)
+    if (senderBucket) {
+      const detail = {
+        at,
+        week,
+        emoji: row.emoji ?? '',
+        itemName: row.item_name ?? '',
+        item: itemLabel,
+        to: profileById.get(row.receiver_id)?.display_name ?? 'unknown',
+        steps: row.steps ?? 0,
+        mvpa: row.mvpa_minutes ?? 0,
+        type: 'sent',
+      }
+      senderBucket.recent.push(detail)
+      if (isCurrentWeek) senderBucket.sentThisWeek.push(detail)
+    }
+  }
+
+  return profiles.map((profile) => {
+    const bucket = byUser.get(profile.id) ?? { receivedThisWeek: [], sentThisWeek: [], recent: [] }
+    const recentRewards = bucket.recent.slice(-8)
+    const rewardLine = recentRewards.length
+      ? recentRewards
+          .map((reward) =>
+            reward.type === 'received'
+              ? `received "${reward.itemName}" ${reward.emoji} from ${reward.from}`
+              : `sent ${reward.to} "${reward.itemName}" ${reward.emoji}`
+          )
+          .join('; ')
+      : ''
+
+    return {
+      userId: profile.id,
+      receivedThisWeek: bucket.receivedThisWeek,
+      sentThisWeek: bucket.sentThisWeek,
+      recentRewards,
+      rewardLine,
+      receivedCountThisWeek: bucket.receivedThisWeek.length,
+      sentCountThisWeek: bucket.sentThisWeek.length,
+    }
+  })
 }
 
 function pickTopScore(candidates, scoreKey) {
@@ -470,6 +550,7 @@ function buildPlayerPrediction(candidate, ctx) {
     isActiveThisWeek,
     noteMetrics,
     pace,
+    rewardMetrics,
     firstCompleterScore,
     lastPlaceScore,
     beggarScore,
@@ -486,6 +567,9 @@ function buildPlayerPrediction(candidate, ctx) {
   ]
   if (noteMetrics.recentNotes.length > 0) {
     statParts.push(`notes: ${noteMetrics.recentNotes.map((note) => `"${note}"`).join('; ')}`)
+  }
+  if (rewardMetrics.rewardLine) {
+    statParts.push(`rewards: ${rewardMetrics.rewardLine}`)
   }
   if (currentReceivedSteps > 0 || currentReceivedMvpa > 0) {
     statParts.push(
@@ -572,6 +656,7 @@ function buildPlayerPrediction(candidate, ctx) {
         history.beggarRate * 40 +
         history.avgReceivedPct * 25 +
         currentReceivedPct * 30 +
+        rewardMetrics.receivedCountThisWeek * 6 +
         Math.max(0, -(history.trend?.combinedPctDelta ?? 0)) * 8
     )
   )
@@ -587,6 +672,8 @@ function buildPlayerPrediction(candidate, ctx) {
     historyLine: formatTrendHistory(history.trend),
     paceLine: pace.paceLine,
     recentNotes: noteMetrics.recentNotes,
+    rewardLine: rewardMetrics.rewardLine,
+    recentRewards: rewardMetrics.recentRewards,
     scores: {
       firstCompleter: firstCompleterLikelihood,
       lastPlace: lastPlaceLikelihood,
@@ -682,6 +769,8 @@ export function buildChallengePredictions({
     mvpaGoal
   )
   const playerEventLogs = buildPlayerEventLogs(profiles, activities, rewards)
+  const playerRewardDetails = buildPlayerRewardDetails(profiles, rewards, currentWeek)
+  const rewardDetailsByUser = new Map(playerRewardDetails.map((entry) => [entry.userId, entry]))
   const weekProgress = getWeekProgressContext()
 
   const currentStats = sortChallengeLeaderboard(
@@ -721,6 +810,14 @@ export function buildChallengePredictions({
     const currentReceivedPct = receivedGoalPct(current, stepGoal, mvpaGoal)
     const isActiveThisWeek = currentTotalSteps > 0 || currentTotalMvpa > 0
     const noteMetrics = buildPlayerNoteMetrics(profile.id, activities, currentWeek)
+    const rewardMetrics = rewardDetailsByUser.get(profile.id) ?? {
+      receivedThisWeek: [],
+      sentThisWeek: [],
+      recentRewards: [],
+      rewardLine: '',
+      receivedCountThisWeek: 0,
+      sentCountThisWeek: 0,
+    }
     const pace = buildGoalPaceContext(
       { steps: currentTotalSteps, mvpa: currentTotalMvpa },
       stepGoal,
@@ -759,6 +856,8 @@ export function buildChallengePredictions({
       history.avgReceivedPct * historyWeight * 80 +
       history.avgRewardsReceived * historyWeight * 8 +
       currentReceivedPct * currentWeight * 100 +
+      rewardMetrics.receivedCountThisWeek * currentWeight * 8 +
+      rewardMetrics.receivedThisWeek.length * currentWeight * 4 +
       Math.max(0, -(history.trend?.combinedPctDelta ?? 0)) * historyWeight * 40
 
     return {
@@ -774,6 +873,7 @@ export function buildChallengePredictions({
       isActiveThisWeek,
       noteMetrics,
       pace,
+      rewardMetrics,
       firstCompleterScore,
       lastPlaceScore,
       beggarScore,

@@ -28,6 +28,19 @@ type PlayerEvent = {
   item?: string
 }
 
+type PlayerReward = {
+  at: string
+  week: string
+  emoji: string
+  itemName: string
+  item: string
+  steps: number
+  mvpa: number
+  type: 'received' | 'sent'
+  from?: string
+  to?: string
+}
+
 type PlayerPayload = {
   userId: string
   name: string
@@ -38,6 +51,8 @@ type PlayerPayload = {
   historyLine: string
   paceLine: string
   recentNotes: string[]
+  rewardLine: string
+  recentRewards: PlayerReward[]
   logs: PlayerEvent[]
   scores: {
     firstCompleter: number
@@ -127,15 +142,22 @@ function getGeminiApiKey() {
   )
 }
 
+function formatRewardForPrompt(reward: PlayerReward) {
+  if (reward.type === 'received') {
+    return `[${reward.at}] received ${reward.emoji} "${reward.itemName}" from ${reward.from} (${reward.steps} steps, ${reward.mvpa} MVPA)`
+  }
+  return `[${reward.at}] sent ${reward.to} ${reward.emoji} "${reward.itemName}" (${reward.steps} steps, ${reward.mvpa} MVPA)`
+}
+
 function formatEventForPrompt(event: PlayerEvent) {
   if (event.type === 'activity') {
     const note = event.note ? ` · note: ${event.note}` : ''
     return `[${event.at}] activity +${event.steps} steps, +${event.mvpa} MVPA (week ${event.week})${note}`
   }
   if (event.type === 'reward_sent') {
-    return `[${event.at}] sent ${event.to} "${event.item}": ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
+    return `[${event.at}] sent ${event.to} ${event.item}: ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
   }
-  return `[${event.at}] received from ${event.from} "${event.item}": ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
+  return `[${event.at}] received from ${event.from} ${event.item}: ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
 }
 
 function buildPrompt(body: RequestBody) {
@@ -180,7 +202,8 @@ The stats below are authoritative. Do NOT invent numbers or change who was picke
 ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, and pace:
 - Group summary: combined % vs total group target (all players × 70k steps + 200 MVPA each)
 - Per player: individual % vs their own 70k/200 (see paceLine)
-Quote or mock activity log notes when present — excuses, gym brags, lazy confessions. Use event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
+Quote or mock activity log notes when present — excuses, gym brags, lazy confessions.
+Mock reward item names and emojis hard — roast pathetic handout titles ("Pity Steps", "Charity MVPA"), shame serial receivers, and clown generous senders. Use recentRewards and event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
 
 ${weekBlock}
 
@@ -202,8 +225,15 @@ ${players
       p.logs.length > 0
         ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
         : '    · no logs yet'
+    const rewardLines =
+      p.recentRewards.length > 0
+        ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
+        : '    · no named rewards yet'
     return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
   Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
+  Reward names (mock these): ${p.rewardLine || 'none'}
+  Recent rewards:
+${rewardLines}
   Event log (chronological, SGT):
 ${logLines}`
   })
