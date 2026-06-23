@@ -36,12 +36,25 @@ type PlayerPayload = {
   labels: string[]
   trend: string
   historyLine: string
+  paceLine: string
+  recentNotes: string[]
   logs: PlayerEvent[]
   scores: {
     firstCompleter: number
     lastPlace: number
     beggar: number
   }
+}
+
+type WeekContext = {
+  stepGoal: number
+  mvpaGoal: number
+  weekday: string
+  dayOfWeek: number
+  daysElapsed: number
+  daysRemaining: number
+  weekProgressPct: number
+  paceSummary: string
 }
 
 type HistoricalWeekSummary = {
@@ -56,6 +69,7 @@ type HistoricalWeekSummary = {
 }
 
 type RequestBody = {
+  weekContext: WeekContext | null
   summaryContext: {
     hasHistory: boolean
     historyWeekCount: number
@@ -109,7 +123,7 @@ function formatEventForPrompt(event: PlayerEvent) {
 }
 
 function buildPrompt(body: RequestBody) {
-  const { summaryContext, picks, players } = body
+  const { weekContext, summaryContext, picks, players } = body
   const historyBlock =
     summaryContext.historicalWeekSummaries.length > 0
       ? summaryContext.historicalWeekSummaries
@@ -120,7 +134,14 @@ function buildPrompt(body: RequestBody) {
           .join('\n')
       : 'No completed past weeks yet.'
 
-  return `You write short, brutally sarcastic prediction copy for a weekly fitness challenge app (70,000 steps + 200 MVPA minutes per week).
+  const weekBlock = weekContext
+    ? `Weekly goals: ${weekContext.stepGoal.toLocaleString()} steps + ${weekContext.mvpaGoal} MVPA minutes (Mon 00:00 – Sun 23:59 SGT).
+Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.daysRemaining} day(s) left, ${weekContext.weekProgressPct}% through the week).
+${weekContext.paceSummary}
+Roast players who are behind linear pace for the day — e.g. on Thursday you should be ~57% toward 70k/200, not 12%.`
+    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per week (SGT).'
+
+  return `You write short, brutally sarcastic prediction copy for a weekly fitness challenge app.
 
 Tone: MAXIMUM trash talk — dry sarcasm, petty roasts, and fantasy-league group-chat energy. Mock their stats, pace, donation habits, gym excuses, and log timestamps without mercy. Be witty, competitive, and openly dismissive of weak numbers. Sound like you're texting mates who signed up for a challenge and immediately regretted it.
 
@@ -138,7 +159,10 @@ Hard rules (never break these):
 - One or two sentences max per field — punchy, not essays
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
-Use historical week results, each player's trend/historyLine, and especially their activity/reward logs (timestamps are SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
+ALWAYS anchor commentary to weekly goals (70,000 steps + 200 MVPA), the current weekday, days remaining, and whether each player is ahead/behind linear pace (see paceLine).
+Quote or mock activity log notes when present — excuses, gym brags, lazy confessions. Use event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
+
+${weekBlock}
 
 Context:
 - ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
@@ -158,7 +182,8 @@ ${players
       p.logs.length > 0
         ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
         : '    · no logs yet'
-    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
+    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
+  Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
   Event log (chronological, SGT):
 ${logLines}`
   })

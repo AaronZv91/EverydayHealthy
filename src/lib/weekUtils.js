@@ -28,6 +28,62 @@ export function getWeekStart(date = new Date()) {
   return new Date(`${ymd}T00:00:00+08:00`)
 }
 
+const WEEKDAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+]
+
+/** Where we are in the Mon–Sun SGT challenge week (for pace vs 70k / 200 MVPA targets). */
+export function getWeekProgressContext(date = new Date()) {
+  const weekdayIndex = getSgtWeekdayIndex(date)
+  const daysElapsed = weekdayIndex + 1
+  const daysRemaining = 7 - daysElapsed
+
+  return {
+    weekday: WEEKDAY_NAMES[weekdayIndex],
+    dayOfWeek: daysElapsed,
+    daysElapsed,
+    daysRemaining,
+    weekProgressPct: Math.round((daysElapsed / 7) * 100),
+  }
+}
+
+/** Compare logged totals to linear weekly-goal pace for the current day. */
+export function buildGoalPaceContext(totals, stepGoal, mvpaGoal, weekProgress) {
+  const fraction = weekProgress.daysElapsed / 7
+  const expectedSteps = Math.round(stepGoal * fraction)
+  const expectedMvpa = Math.round(mvpaGoal * fraction)
+  const steps = totals.steps ?? 0
+  const mvpa = totals.mvpa ?? 0
+  const stepsPct = stepGoal > 0 ? Math.round((steps / stepGoal) * 100) : 0
+  const mvpaPct = mvpaGoal > 0 ? Math.round((mvpa / mvpaGoal) * 100) : 0
+  const combinedActual = stepGoal > 0 && mvpaGoal > 0 ? (steps / stepGoal + mvpa / mvpaGoal) / 2 : 0
+  const paceDeltaPct = Math.round((combinedActual - fraction) * 100)
+
+  let paceLabel = 'on pace'
+  if (paceDeltaPct > 10) paceLabel = 'ahead of pace'
+  else if (paceDeltaPct < -10) paceLabel = 'behind pace'
+
+  return {
+    stepsPct,
+    mvpaPct,
+    stepsRemaining: Math.max(0, stepGoal - steps),
+    mvpaRemaining: Math.max(0, mvpaGoal - mvpa),
+    expectedStepsByNow: expectedSteps,
+    expectedMvpaByNow: expectedMvpa,
+    stepsBehindPace: expectedSteps - steps,
+    mvpaBehindPace: expectedMvpa - mvpa,
+    paceDeltaPct,
+    paceLabel,
+    paceLine: `${stepsPct}% of ${stepGoal.toLocaleString()} steps · ${mvpaPct}% of ${mvpaGoal} MVPA vs ~${Math.round(fraction * 100)}% linear week progress (${paceLabel})`,
+  }
+}
+
 export function formatWeekRange(date = new Date()) {
   const start = getWeekStart(date)
   const end = addDaysInWeekTimezone(start, 6)

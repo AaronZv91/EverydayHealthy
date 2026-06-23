@@ -4,7 +4,20 @@ import {
   findTopReceiverUserId,
   sortChallengeLeaderboard,
 } from './challengeStats'
-import { formatLogTimestamp } from './weekUtils'
+import { formatLogTimestamp, buildGoalPaceContext, getWeekProgressContext } from './weekUtils'
+
+const EXCUSE_NOTE_PATTERN =
+  /\b(tired|lazy|rest day|resting|sick|injured|couldn't|cant|can't|skip|skipped|busy|exhausted|pain|hurt|weather|rain|no time|didn't|didnt|forgot|oops|holiday|travel)\b/i
+const COMMITMENT_NOTE_PATTERN =
+  /\b(gym|run|walk|push|crush|goal|finish|tomorrow|will|plan|training|workout|hike|cycle|swim|marathon|steps|mvpa|jog|cardio|lift)\b/i
+
+function classifyNote(note) {
+  if (!note) return { excuse: false, commitment: false }
+  return {
+    excuse: EXCUSE_NOTE_PATTERN.test(note),
+    commitment: COMMITMENT_NOTE_PATTERN.test(note),
+  }
+}
 
 function normalizeWeekStart(value) {
   if (!value) return ''
@@ -53,6 +66,9 @@ function createEmptyMetrics(profile) {
     sumReceivedPct: 0,
     sumActivityCount: 0,
     sumRewardsReceived: 0,
+    sumNoteCount: 0,
+    sumExcuseNotes: 0,
+    sumCommitmentNotes: 0,
     weeklySnapshots: [],
   }
 }
@@ -138,6 +154,9 @@ function finalizeMetrics(row, weekCount) {
     avgReceivedPct: row.sumReceivedPct / weeks,
     avgActivityCount: row.sumActivityCount / weeks,
     avgRewardsReceived: row.sumRewardsReceived / weeks,
+    avgNoteCount: row.sumNoteCount / weeks,
+    avgExcuseNotes: row.sumExcuseNotes / weeks,
+    avgCommitmentNotes: row.sumCommitmentNotes / weeks,
     trend,
   }
 }
@@ -245,6 +264,31 @@ function buildPlayerEventLogs(profiles, activities, rewards) {
       .sort((a, b) => a.sortKey - b.sortKey)
       .map(({ sortKey, ...event }) => event),
   }))
+}
+
+function buildPlayerNoteMetrics(userId, activities, currentWeek) {
+  const currentActivities = activities.filter(
+    (row) => row.user_id === userId && normalizeWeekStart(row.week_start) === currentWeek
+  )
+  const allNotes = currentActivities
+    .map((row) => row.note?.trim())
+    .filter(Boolean)
+  const recentNotes = allNotes.slice(-5)
+
+  let excuseCount = 0
+  let commitmentCount = 0
+  for (const note of allNotes) {
+    const classified = classifyNote(note)
+    if (classified.excuse) excuseCount += 1
+    if (classified.commitment) commitmentCount += 1
+  }
+
+  return {
+    noteCountThisWeek: allNotes.length,
+    recentNotes,
+    excuseCount,
+    commitmentCount,
+  }
 }
 
 function pickTopScore(candidates, scoreKey) {
@@ -419,6 +463,8 @@ function buildPlayerPrediction(candidate, ctx) {
     currentCombinedPct,
     currentReceivedPct,
     isActiveThisWeek,
+    noteMetrics,
+    pace,
     firstCompleterScore,
     lastPlaceScore,
     beggarScore,
@@ -431,7 +477,11 @@ function buildPlayerPrediction(candidate, ctx) {
     `${formatCount(currentTotalSteps)}/${formatCount(stepGoal)} steps`,
     `${formatCount(currentTotalMvpa)}/${mvpaGoal} MVPA`,
     `${pct}% goals`,
+    pace.paceLine,
   ]
+  if (noteMetrics.recentNotes.length > 0) {
+    statParts.push(`notes: ${noteMetrics.recentNotes.map((note) => `"${note}"`).join('; ')}`)
+  }
   if (currentReceivedSteps > 0 || currentReceivedMvpa > 0) {
     statParts.push(
       `${formatCount(currentReceivedSteps)} recv steps · ${formatCount(currentReceivedMvpa)} recv MVPA (${recvPct}%)`
@@ -492,6 +542,9 @@ function buildPlayerPrediction(candidate, ctx) {
         history.completionRate * 20 +
         currentCombinedPct * 35 +
         trendMomentum * 12 +
+        Math.max(0, pace.paceDeltaPct) * 0.15 +
+        noteMetrics.commitmentCount * 4 -
+        noteMetrics.excuseCount * 3 +
         (isActiveThisWeek ? 5 : 0)
     )
   )
@@ -501,7 +554,9 @@ function buildPlayerPrediction(candidate, ctx) {
       20 +
         history.lastPlaceRate * 35 +
         (hasHistory ? (1 - history.avgCombinedPct) * 15 : 0) +
-        (1 - currentCombinedPct) * 25 -
+        (1 - currentCombinedPct) * 25 +
+        Math.max(0, -pace.paceDeltaPct) * 0.2 +
+        noteMetrics.excuseCount * 5 -
         trendMomentum * 10
     )
   )
@@ -525,6 +580,8 @@ function buildPlayerPrediction(candidate, ctx) {
     labels,
     trend: history.trend?.label ?? 'No history',
     historyLine: formatTrendHistory(history.trend),
+    paceLine: pace.paceLine,
+    recentNotes: noteMetrics.recentNotes,
     scores: {
       firstCompleter: firstCompleterLikelihood,
       lastPlace: lastPlaceLikelihood,
@@ -590,6 +647,15 @@ export function buildChallengePredictions({
       row.sumActivityCount += weekActivities.filter((a) => a.user_id === stats.user_id).length
       row.sumRewardsReceived += weekRewards.filter((r) => r.receiver_id === stats.user_id).length
 
+      for (const act of weekActivities.filter((a) => a.user_id === stats.user_id)) {
+        const note = act.note?.trim()
+        if (!note) continue
+        row.sumNoteCount += 1
+        const classified = classifyNote(note)
+        if (classified.excuse) row.sumExcuseNotes += 1
+        if (classified.commitment) row.sumCommitmentNotes += 1
+      }
+
       row.weeklySnapshots.push({
         week,
         rank,
@@ -611,6 +677,7 @@ export function buildChallengePredictions({
     mvpaGoal
   )
   const playerEventLogs = buildPlayerEventLogs(profiles, activities, rewards)
+  const weekProgress = getWeekProgressContext()
 
   const currentStats = sortChallengeLeaderboard(
     buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
@@ -641,6 +708,15 @@ export function buildChallengePredictions({
     const currentCombinedPct = combinedGoalPct(current, stepGoal, mvpaGoal)
     const currentReceivedPct = receivedGoalPct(current, stepGoal, mvpaGoal)
     const isActiveThisWeek = currentTotalSteps > 0 || currentTotalMvpa > 0
+    const noteMetrics = buildPlayerNoteMetrics(profile.id, activities, currentWeek)
+    const pace = buildGoalPaceContext(
+      { steps: currentTotalSteps, mvpa: currentTotalMvpa },
+      stepGoal,
+      mvpaGoal,
+      weekProgress
+    )
+    const paceAhead = Math.max(0, pace.paceDeltaPct / 100)
+    const paceBehind = Math.max(0, -pace.paceDeltaPct / 100)
 
     const firstCompleterScore =
       history.firstCompleterRate * historyWeight * 100 +
@@ -648,13 +724,23 @@ export function buildChallengePredictions({
       history.avgCombinedPct * historyWeight * 40 +
       currentCombinedPct * currentWeight * 100 +
       momentum * historyWeight * 25 +
-      (isActiveThisWeek ? 5 : 0)
+      paceAhead * currentWeight * 60 +
+      noteMetrics.commitmentCount * currentWeight * 12 +
+      noteMetrics.noteCountThisWeek * currentWeight * 3 +
+      history.avgCommitmentNotes * historyWeight * 8 +
+      (isActiveThisWeek ? 5 : 0) -
+      noteMetrics.excuseCount * currentWeight * 10 -
+      history.avgExcuseNotes * historyWeight * 6
 
     const lastPlaceScore =
       history.avgTotalSteps * historyWeight +
       history.avgTotalMvpa * historyWeight * 350 +
       currentOutput * currentWeight -
-      momentum * historyWeight * 8000
+      momentum * historyWeight * 8000 +
+      paceBehind * currentWeight * 80000 +
+      noteMetrics.excuseCount * currentWeight * 25 +
+      history.avgExcuseNotes * historyWeight * 20 -
+      noteMetrics.commitmentCount * currentWeight * 15
 
     const beggarScore =
       history.beggarRate * historyWeight * 100 +
@@ -674,6 +760,8 @@ export function buildChallengePredictions({
       currentCombinedPct,
       currentReceivedPct,
       isActiveThisWeek,
+      noteMetrics,
+      pace,
       firstCompleterScore,
       lastPlaceScore,
       beggarScore,
@@ -733,6 +821,12 @@ export function buildChallengePredictions({
     historyWeekCount: historyWeeks.length,
     historicalWeekSummaries,
     playerEventLogs,
+    weekContext: {
+      stepGoal,
+      mvpaGoal,
+      ...weekProgress,
+      paceSummary: `Day ${weekProgress.dayOfWeek}/7 (${weekProgress.weekday}) — ${weekProgress.weekProgressPct}% through the Mon–Sun week; linear targets by now: ~${Math.round((weekProgress.daysElapsed / 7) * stepGoal).toLocaleString()} steps and ~${Math.round((weekProgress.daysElapsed / 7) * mvpaGoal)} MVPA min.`,
+    },
     updatedAt: Date.now(),
     playerPredictions,
     firstCompleter: firstCompleter
