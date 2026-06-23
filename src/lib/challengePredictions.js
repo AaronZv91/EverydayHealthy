@@ -4,7 +4,12 @@ import {
   findTopReceiverUserId,
   sortChallengeLeaderboard,
 } from './challengeStats'
-import { formatLogTimestamp, buildGoalPaceContext, getWeekProgressContext } from './weekUtils'
+import {
+  formatLogTimestamp,
+  buildGoalPaceContext,
+  buildGroupGoalContext,
+  getWeekProgressContext,
+} from './weekUtils'
 
 const EXCUSE_NOTE_PATTERN =
   /\b(tired|lazy|rest day|resting|sick|injured|couldn't|cant|can't|skip|skipped|busy|exhausted|pain|hurt|weather|rain|no time|didn't|didnt|forgot|oops|holiday|travel)\b/i
@@ -682,6 +687,13 @@ export function buildChallengePredictions({
   const currentStats = sortChallengeLeaderboard(
     buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
   )
+  const groupGoal = buildGroupGoalContext(
+    currentStats,
+    profiles.length,
+    stepGoal,
+    mvpaGoal,
+    weekProgress
+  )
   const currentByUser = new Map(currentStats.map((row) => [row.user_id, row]))
 
   const historyWeight = hasHistory ? 0.3 : 0
@@ -802,6 +814,7 @@ export function buildChallengePredictions({
 
   const summaryParts = [
     `${activeThisWeek}/${profiles.length} players active this week.`,
+    `Group at ${groupGoal.groupCombinedPct}% of combined target (${formatCount(groupGoal.totalStepsLogged)}/${formatCount(groupGoal.totalStepGoal)} steps, ${groupGoal.groupMvpaPct}% MVPA).`,
     completedThisWeek > 0
       ? `${completedThisWeek} already completed both goals.`
       : 'No one has finished both goals yet.',
@@ -825,7 +838,8 @@ export function buildChallengePredictions({
       stepGoal,
       mvpaGoal,
       ...weekProgress,
-      paceSummary: `Day ${weekProgress.dayOfWeek}/7 (${weekProgress.weekday}) — ${weekProgress.weekProgressPct}% through the Mon–Sun week; linear targets by now: ~${Math.round((weekProgress.daysElapsed / 7) * stepGoal).toLocaleString()} steps and ~${Math.round((weekProgress.daysElapsed / 7) * mvpaGoal)} MVPA min.`,
+      ...groupGoal,
+      paceSummary: `Per player (${formatCount(stepGoal)} steps + ${mvpaGoal} MVPA each): linear target by now ~${Math.round((weekProgress.daysElapsed / 7) * stepGoal).toLocaleString()} steps / ~${Math.round((weekProgress.daysElapsed / 7) * mvpaGoal)} MVPA min. ${groupGoal.groupPaceSummary}`,
     },
     updatedAt: Date.now(),
     playerPredictions,

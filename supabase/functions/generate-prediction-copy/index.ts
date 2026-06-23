@@ -55,6 +55,22 @@ type WeekContext = {
   daysRemaining: number
   weekProgressPct: number
   paceSummary: string
+  playerCount: number
+  individualStepGoal: number
+  individualMvpaGoal: number
+  totalStepGoal: number
+  totalMvpaGoal: number
+  totalStepsLogged: number
+  totalMvpaLogged: number
+  groupStepsPct: number
+  groupMvpaPct: number
+  groupCombinedPct: number
+  expectedGroupStepsByNow: number
+  expectedGroupMvpaByNow: number
+  groupPaceLabel: string
+  groupPaceDeltaPct: number
+  groupPaceLine: string
+  groupPaceSummary: string
 }
 
 type HistoricalWeekSummary = {
@@ -135,11 +151,13 @@ function buildPrompt(body: RequestBody) {
       : 'No completed past weeks yet.'
 
   const weekBlock = weekContext
-    ? `Weekly goals: ${weekContext.stepGoal.toLocaleString()} steps + ${weekContext.mvpaGoal} MVPA minutes (Mon 00:00 – Sun 23:59 SGT).
+    ? `Individual weekly goal (each player): ${weekContext.individualStepGoal.toLocaleString()} steps + ${weekContext.individualMvpaGoal} MVPA minutes.
+Group combined weekly goal (${weekContext.playerCount} players): ${weekContext.totalStepGoal.toLocaleString()} steps + ${weekContext.totalMvpaGoal} MVPA minutes total.
 Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.daysRemaining} day(s) left, ${weekContext.weekProgressPct}% through the week).
+Group current state: ${weekContext.groupPaceLine}
 ${weekContext.paceSummary}
-Roast players who are behind linear pace for the day — e.g. on Thursday you should be ~57% toward 70k/200, not 12%.`
-    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per week (SGT).'
+For the group summary, use groupCombinedPct (${weekContext.groupCombinedPct}%) vs the combined target. For each player, use their individual % vs 70k/200 (see paceLine). Roast anyone behind linear pace for the day.`
+    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per player (SGT). Group % = sum of all logs ÷ (players × individual goal).'
 
   return `You write short, brutally sarcastic prediction copy for a weekly fitness challenge app.
 
@@ -159,7 +177,9 @@ Hard rules (never break these):
 - One or two sentences max per field — punchy, not essays
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
-ALWAYS anchor commentary to weekly goals (70,000 steps + 200 MVPA), the current weekday, days remaining, and whether each player is ahead/behind linear pace (see paceLine).
+ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, and pace:
+- Group summary: combined % vs total group target (all players × 70k steps + 200 MVPA each)
+- Per player: individual % vs their own 70k/200 (see paceLine)
 Quote or mock activity log notes when present — excuses, gym brags, lazy confessions. Use event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
 
 ${weekBlock}

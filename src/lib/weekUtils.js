@@ -84,6 +84,47 @@ export function buildGoalPaceContext(totals, stepGoal, mvpaGoal, weekProgress) {
   }
 }
 
+/** Sum of every player's individual weekly goal — for group current-state %. */
+export function buildGroupGoalContext(currentStats, playerCount, stepGoal, mvpaGoal, weekProgress) {
+  const totalStepGoal = stepGoal * playerCount
+  const totalMvpaGoal = mvpaGoal * playerCount
+  const totalStepsLogged = currentStats.reduce((sum, row) => sum + (row.total_steps ?? 0), 0)
+  const totalMvpaLogged = currentStats.reduce((sum, row) => sum + (row.total_mvpa ?? 0), 0)
+
+  const groupStepsPct = totalStepGoal > 0 ? Math.round((totalStepsLogged / totalStepGoal) * 100) : 0
+  const groupMvpaPct = totalMvpaGoal > 0 ? Math.round((totalMvpaLogged / totalMvpaGoal) * 100) : 0
+  const groupCombinedPct = Math.round((groupStepsPct + groupMvpaPct) / 2)
+
+  const fraction = weekProgress.daysElapsed / 7
+  const expectedGroupStepsByNow = Math.round(totalStepGoal * fraction)
+  const expectedGroupMvpaByNow = Math.round(totalMvpaGoal * fraction)
+  const groupPace = buildGoalPaceContext(
+    { steps: totalStepsLogged, mvpa: totalMvpaLogged },
+    totalStepGoal,
+    totalMvpaGoal,
+    weekProgress
+  )
+
+  return {
+    playerCount,
+    individualStepGoal: stepGoal,
+    individualMvpaGoal: mvpaGoal,
+    totalStepGoal,
+    totalMvpaGoal,
+    totalStepsLogged,
+    totalMvpaLogged,
+    groupStepsPct,
+    groupMvpaPct,
+    groupCombinedPct,
+    expectedGroupStepsByNow,
+    expectedGroupMvpaByNow,
+    groupPaceLabel: groupPace.paceLabel,
+    groupPaceDeltaPct: groupPace.paceDeltaPct,
+    groupPaceLine: `${formatNumber(totalStepsLogged)}/${formatNumber(totalStepGoal)} steps (${groupStepsPct}%) · ${formatNumber(totalMvpaLogged)}/${formatNumber(totalMvpaGoal)} MVPA (${groupMvpaPct}%) · group ${groupCombinedPct}% combined (${groupPace.paceLabel})`,
+    groupPaceSummary: `Group total (${playerCount} players × ${formatNumber(stepGoal)} steps + ${mvpaGoal} MVPA each): ${formatNumber(totalStepsLogged)}/${formatNumber(totalStepGoal)} steps (${groupStepsPct}%), ${formatNumber(totalMvpaLogged)}/${formatNumber(totalMvpaGoal)} MVPA min (${groupMvpaPct}%) — ${groupCombinedPct}% of combined target; linear pace by now ~${formatNumber(expectedGroupStepsByNow)} steps / ~${expectedGroupMvpaByNow} MVPA (${groupPace.paceLabel}).`,
+  }
+}
+
 export function formatWeekRange(date = new Date()) {
   const start = getWeekStart(date)
   const end = addDaysInWeekTimezone(start, 6)
