@@ -617,8 +617,8 @@ export function buildChallengePredictions({
   )
   const currentByUser = new Map(currentStats.map((row) => [row.user_id, row]))
 
-  const historyWeight = hasHistory ? 0.5 : 0
-  const currentWeight = hasHistory ? 0.5 : 1
+  const historyWeight = hasHistory ? 0.3 : 0
+  const currentWeight = hasHistory ? 0.7 : 1
 
   const candidates = profiles.map((profile) => {
     const history = finalizeMetrics(
@@ -723,7 +723,7 @@ export function buildChallengePredictions({
         ? 'No activity this week yet — board ranks follow last week until someone logs.'
         : null,
     hasHistory
-      ? `Forecasts blend ${historyWeeks.length} past week(s) and this week's pace 50/50.`
+      ? `Forecasts blend ${historyWeeks.length} past week(s) (30%) with this week's pace (70%).`
       : 'Forecasts rely mostly on this week because history is limited.',
   ]
 
