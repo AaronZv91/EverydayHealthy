@@ -1,3 +1,5 @@
+import { getSgtDateKey, getWeekDayBuckets } from './weekUtils'
+
 function sumBy(items, key) {
   return items.reduce((acc, item) => acc + (Number(item[key]) || 0), 0)
 }
@@ -54,6 +56,112 @@ export function buildUserChallengeStats({
     available_mvpa: net_self_mvpa,
     rewards_sent_count: sent.length,
     rewards_received_count: received.length,
+  }
+}
+
+function buildTimelineSeries(events, dayBuckets, pickValues) {
+  const dayIndexByKey = new Map(dayBuckets.map((day, index) => [day.key, index]))
+  const snapshots = Array.from({ length: dayBuckets.length }, () => null)
+
+  let state = {
+    selfSteps: 0,
+    selfMvpa: 0,
+    sentSteps: 0,
+    sentMvpa: 0,
+    receivedSteps: 0,
+    receivedMvpa: 0,
+  }
+
+  for (const event of events) {
+    if (event.kind === 'activity') {
+      state.selfSteps += event.steps
+      state.selfMvpa += event.mvpa
+    } else if (event.kind === 'reward_sent') {
+      state.sentSteps += event.steps
+      state.sentMvpa += event.mvpa
+    } else {
+      state.receivedSteps += event.steps
+      state.receivedMvpa += event.mvpa
+    }
+
+    const dayIndex = dayIndexByKey.get(getSgtDateKey(event.created_at))
+    if (dayIndex !== undefined) {
+      snapshots[dayIndex] = pickValues(state)
+    }
+  }
+
+  let last = { Self: 0, Rewarded: 0, Total: 0 }
+  return dayBuckets.map((day, index) => {
+    if (snapshots[index]) last = snapshots[index]
+    return { name: day.label, ...last }
+  })
+}
+
+/** Daily accumulated self vs rewarded totals (Mon–Sun SGT) for dashboard line charts. */
+export function buildUserWeeklyTimeline({ userId, weekStart, activities, rewards }) {
+  const dayBuckets = getWeekDayBuckets(weekStart)
+  if (!dayBuckets.length) {
+    return { steps: [], mvpa: [] }
+  }
+
+  const weekKey = normalizeWeekStart(weekStart)
+  const userActivities = filterByWeek(
+    activities.filter((row) => row.user_id === userId),
+    weekKey
+  )
+  const scopedRewards = filterByWeek(rewards, weekKey)
+
+  const events = [
+    ...userActivities.map((row) => ({
+      kind: 'activity',
+      steps: Number(row.steps) || 0,
+      mvpa: Number(row.mvpa_minutes) || 0,
+      created_at: row.created_at,
+      tieBreak: row.id ?? '',
+    })),
+    ...scopedRewards.flatMap((row) => {
+      const entries = []
+      if (row.sender_id === userId) {
+        entries.push({
+          kind: 'reward_sent',
+          steps: Number(row.steps) || 0,
+          mvpa: Number(row.mvpa_minutes) || 0,
+          created_at: row.created_at,
+          tieBreak: `${row.id}-sent`,
+        })
+      }
+      if (row.receiver_id === userId) {
+        entries.push({
+          kind: 'reward_received',
+          steps: Number(row.steps) || 0,
+          mvpa: Number(row.mvpa_minutes) || 0,
+          created_at: row.created_at,
+          tieBreak: `${row.id}-recv`,
+        })
+      }
+      return entries
+    }),
+  ].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
+      String(a.tieBreak).localeCompare(String(b.tieBreak))
+  )
+
+  const pickSteps = (state) => {
+    const self = Math.max(0, state.selfSteps - state.sentSteps)
+    const rewarded = state.receivedSteps
+    return { Self: self, Rewarded: rewarded, Total: self + rewarded }
+  }
+
+  const pickMvpa = (state) => {
+    const self = Math.max(0, state.selfMvpa - state.sentMvpa)
+    const rewarded = state.receivedMvpa
+    return { Self: self, Rewarded: rewarded, Total: self + rewarded }
+  }
+
+  return {
+    steps: buildTimelineSeries(events, dayBuckets, pickSteps),
+    mvpa: buildTimelineSeries(events, dayBuckets, pickMvpa),
   }
 }
 

@@ -125,6 +125,25 @@ export function buildGroupGoalContext(currentStats, playerCount, stepGoal, mvpaG
   }
 }
 
+/** Mon–Sun buckets for a challenge week (SGT date keys). */
+export function getWeekDayBuckets(weekStart) {
+  const mondayYmd = String(weekStart ?? '').slice(0, 10)
+  if (!mondayYmd) return []
+
+  const monday = new Date(`${mondayYmd}T12:00:00+08:00`)
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  return labels.map((label, index) => {
+    const date = addDaysInWeekTimezone(monday, index)
+    return { label, key: getSgtYmd(date) }
+  })
+}
+
+export function getSgtDateKey(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: WEEK_TIMEZONE })
+}
+
 export function formatWeekRange(date = new Date()) {
   const start = getWeekStart(date)
   const end = addDaysInWeekTimezone(start, 6)

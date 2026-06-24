@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { buildUserChallengeStats, fetchChallengeSourceData } from '../lib/challengeStats'
+import { buildUserChallengeStats, buildUserWeeklyTimeline, fetchChallengeSourceData } from '../lib/challengeStats'
 import { requireSupabase } from '../lib/supabaseClient'
 
 export function useProfiles() {
@@ -48,15 +48,21 @@ export function useWeeklyStats(userId) {
         return
       }
 
-      setStats(
-        buildUserChallengeStats({
+      setStats({
+        ...buildUserChallengeStats({
           userId,
           displayName: profile.display_name,
           weekStart,
           activities,
           rewards,
-        })
-      )
+        }),
+        timeline: buildUserWeeklyTimeline({
+          userId,
+          weekStart,
+          activities,
+          rewards,
+        }),
+      })
     } catch (error) {
       console.error(error)
     } finally {

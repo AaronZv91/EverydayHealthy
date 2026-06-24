@@ -1,8 +1,8 @@
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -68,22 +68,18 @@ function CustomTooltip({ active, payload, label, unit }) {
   )
 }
 
-function MetricBarChart({ title, self, rewarded, goal, unit }) {
-  const selfValue = self ?? 0
-  const rewardedValue = rewarded ?? 0
-  const total = selfValue + rewardedValue
-  const yMax = Math.max(goal, total, 1)
-
-  const data = [{ name: title, Self: selfValue, Rewarded: rewardedValue }]
+function MetricAccumulatedLineChart({ title, data, goal, unit }) {
+  const peak = data.reduce((max, row) => Math.max(max, row.Total ?? 0), 0)
+  const yMax = Math.max(goal, peak, 1)
 
   return (
     <div className="min-w-0 flex-1">
       <h4 className="mb-2 text-xs font-medium text-slate-400">
         {title} · goal {formatNumber(goal)} {unit}
       </h4>
-      <div className="h-44 w-full">
+      <div className="h-52 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
             <YAxis
@@ -101,14 +97,46 @@ function MetricBarChart({ title, self, rewarded, goal, unit }) {
               strokeDasharray="4 4"
               label={{ value: 'Goal', fill: '#94a3b8', fontSize: 11, position: 'insideTopRight' }}
             />
-            <Bar dataKey="Self" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} />
-            <Bar dataKey="Rewarded" stackId="a" fill="#eab308" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Line
+              type="monotone"
+              dataKey="Self"
+              stroke="#06b6d4"
+              strokeWidth={2}
+              dot={{ r: 3, fill: '#06b6d4' }}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="Rewarded"
+              stroke="#eab308"
+              strokeWidth={2}
+              dot={{ r: 3, fill: '#eab308' }}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="Total"
+              stroke="#e2e8f0"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={false}
+            />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>
   )
 }
+
+const EMPTY_WEEK = [
+  { name: 'Mon', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Tue', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Wed', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Thu', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Fri', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Sat', Self: 0, Rewarded: 0, Total: 0 },
+  { name: 'Sun', Self: 0, Rewarded: 0, Total: 0 },
+]
 
 export default function Dashboard({ stats, loading }) {
   if (loading) {
@@ -126,6 +154,9 @@ export default function Dashboard({ stats, loading }) {
       </section>
     )
   }
+
+  const stepsTimeline = stats.timeline?.steps?.length ? stats.timeline.steps : EMPTY_WEEK
+  const mvpaTimeline = stats.timeline?.mvpa?.length ? stats.timeline.mvpa : EMPTY_WEEK
 
   return (
     <section className="card space-y-6">
@@ -158,31 +189,33 @@ export default function Dashboard({ stats, loading }) {
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-slate-300">Breakdown (stacked bar charts)</h3>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">Daily accumulated progress</h3>
         <div className="flex flex-col gap-6 md:flex-row">
-          <MetricBarChart
+          <MetricAccumulatedLineChart
             title="Steps"
-            self={stats.net_self_steps ?? 0}
-            rewarded={stats.received_steps ?? 0}
+            data={stepsTimeline}
             goal={WEEKLY_GOALS.steps}
             unit="steps"
           />
-          <MetricBarChart
+          <MetricAccumulatedLineChart
             title="MVPA"
-            self={stats.net_self_mvpa ?? 0}
-            rewarded={stats.received_mvpa ?? 0}
+            data={mvpaTimeline}
             goal={WEEKLY_GOALS.mvpaMinutes}
             unit="min"
           />
         </div>
-        <div className="mt-2 flex gap-4 text-xs text-slate-500">
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-brand-500" />
+            <span className="inline-block h-0.5 w-4 rounded bg-brand-500" />
             Cyan: net self (earned − sent)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-reward-500" />
+            <span className="inline-block h-0.5 w-4 rounded bg-reward-500" />
             Yellow: received rewards
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-4 rounded border border-dashed border-slate-400" />
+            White dashed: total
           </span>
         </div>
       </div>
