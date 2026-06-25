@@ -49,19 +49,26 @@ export default function HomePage({ user, onSignOut }) {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              className={`empathy-toggle ${empathyMode ? 'empathy-toggle-on' : ''}`}
-              onClick={toggleEmpathyMode}
-              aria-pressed={empathyMode}
-              title={
-                empathyMode
-                  ? 'Turn off Empathy Mode — return to competitive view'
-                  : 'Turn on Empathy Mode — gentle tone, no labels or backgrounds'
-              }
-            >
-              {empathyMode ? '☁️ Empathy Mode' : 'Empathy Mode'}
-            </button>
+            <div className="empathy-switch-wrap">
+              <span className="empathy-switch-label" id="empathy-mode-label">
+                Empathy Mode
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={empathyMode}
+                aria-labelledby="empathy-mode-label"
+                className={`empathy-switch ${empathyMode ? 'empathy-switch-on' : ''}`}
+                onClick={toggleEmpathyMode}
+                title={
+                  empathyMode
+                    ? 'Turn off Empathy Mode — return to competitive view'
+                    : 'Turn on Empathy Mode — gentle tone, no labels or backgrounds'
+                }
+              >
+                <span className="empathy-switch-thumb" aria-hidden="true" />
+              </button>
+            </div>
             <span className="hidden text-sm text-slate-400 sm:inline">
               {user?.email}
             </span>
