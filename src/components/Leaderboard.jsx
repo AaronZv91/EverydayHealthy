@@ -2,6 +2,7 @@ import { useState } from 'react'
 import GoalPieChart, { PIE_COLORS } from './GoalPieChart'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
+import parasiteBgUrl from '../assets/mvpa-parasite.png'
 
 function StackedHorizontalBar({ label, self, received, sent, scaleMax, goal }) {
   const total = self + received
@@ -160,7 +161,13 @@ function ChallengeRow({
     <>
       {isTopReceiver && <div className="beggar-cat-bg" aria-hidden="true" />}
       {isWeeklySoldier && <div className="soldier-cat-bg" aria-hidden="true" />}
-      {isMvpaParasite && <div className="parasite-cat-bg" aria-hidden="true" />}
+      {isMvpaParasite && (
+        <div
+          className="parasite-cat-bg"
+          style={{ backgroundImage: `url(${parasiteBgUrl})` }}
+          aria-hidden="true"
+        />
+      )}
       <div className="relative z-10">{rowBody}</div>
     </>
   )
@@ -169,7 +176,7 @@ function ChallengeRow({
     return (
       <li className="beggar-pole-wrap">
         <div
-          className={`beggar-pole-inner beggar-cat-inner ${isWeeklySoldier ? 'soldier-cat-inner' : ''}`}
+          className={`beggar-pole-inner beggar-cat-inner ${isWeeklySoldier ? 'soldier-cat-inner' : ''} ${isMvpaParasite ? 'parasite-cat-inner' : ''}`}
         >
           {rowContent}
         </div>
@@ -180,7 +187,9 @@ function ChallengeRow({
   if (isWeeklySoldier) {
     return (
       <li className="soldier-cat-wrap">
-        <div className="soldier-cat-inner px-3 py-3">{rowContent}</div>
+        <div className={`soldier-cat-inner px-3 py-3 ${isMvpaParasite ? 'parasite-cat-inner' : ''}`}>
+          {rowContent}
+        </div>
       </li>
     )
   }
@@ -201,7 +210,7 @@ function ChallengeRow({
           : 'border-slate-800 bg-slate-800/40'
       }`}
     >
-      {rowBody}
+      {rowContent}
     </li>
   )
 }
