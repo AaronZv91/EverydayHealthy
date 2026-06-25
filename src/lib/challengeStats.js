@@ -304,6 +304,60 @@ export function findTopReceiverUserId(users, { stepGoal, mvpaGoal }) {
   return topUserId
 }
 
+function getWeekStartMs(weekStart) {
+  const ymd = normalizeWeekStart(weekStart)
+  if (!ymd) return Date.now()
+  return new Date(`${ymd}T00:00:00+08:00`).getTime()
+}
+
+/** Player with the longest gap without self-logging MVPA minutes this week. */
+export function findMvpaParasiteUserId({ activities, profiles, weekStart }) {
+  const weekKey = normalizeWeekStart(weekStart)
+  if (!weekKey || !profiles.length) return null
+
+  const weekStartMs = getWeekStartMs(weekStart)
+  const nowMs = Date.now()
+  const scopedActivities = filterByWeek(activities, weekKey)
+
+  let parasiteUserId = null
+  let longestGapMs = -1
+  let tieBreakName = ''
+
+  for (const profile of profiles) {
+    const mvpaLogs = scopedActivities
+      .filter((row) => row.user_id === profile.id && (Number(row.mvpa_minutes) || 0) > 0)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    let maxGapMs = 0
+    if (mvpaLogs.length === 0) {
+      maxGapMs = nowMs - weekStartMs
+    } else {
+      const firstMs = new Date(mvpaLogs[0].created_at).getTime()
+      maxGapMs = Math.max(maxGapMs, firstMs - weekStartMs)
+
+      for (let index = 1; index < mvpaLogs.length; index += 1) {
+        const prevMs = new Date(mvpaLogs[index - 1].created_at).getTime()
+        const currMs = new Date(mvpaLogs[index].created_at).getTime()
+        maxGapMs = Math.max(maxGapMs, currMs - prevMs)
+      }
+
+      const lastMs = new Date(mvpaLogs[mvpaLogs.length - 1].created_at).getTime()
+      maxGapMs = Math.max(maxGapMs, nowMs - lastMs)
+    }
+
+    if (
+      maxGapMs > longestGapMs ||
+      (maxGapMs === longestGapMs && profile.display_name.localeCompare(tieBreakName) < 0)
+    ) {
+      longestGapMs = maxGapMs
+      parasiteUserId = profile.id
+      tieBreakName = profile.display_name
+    }
+  }
+
+  return parasiteUserId
+}
+
 export async function fetchChallengeSourceData(client) {
   const [weekStartResult, profilesResult, activitiesResult, rewardsResult] = await Promise.all([
     client.rpc('get_week_start'),

@@ -18,6 +18,7 @@ export default function HomePage({ user, onSignOut }) {
     allTimeStats,
     weeklySoldierUserId,
     weeklyBeggarUserId,
+    weeklyMvpaParasiteUserId,
     predictions,
     loading: leaderboardLoading,
     refreshing: leaderboardRefreshing,
@@ -62,6 +63,7 @@ export default function HomePage({ user, onSignOut }) {
           allTimeStats={allTimeStats}
           weeklySoldierUserId={weeklySoldierUserId}
           weeklyBeggarUserId={weeklyBeggarUserId}
+          weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
           loading={leaderboardLoading}
           currentUserId={userId}
         />

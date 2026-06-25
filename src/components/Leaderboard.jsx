@@ -61,6 +61,7 @@ function ChallengeRow({
   isCurrentUser,
   isTopReceiver,
   isWeeklySoldier,
+  isMvpaParasite,
   showGoalPies,
 }) {
   const rowBody = (
@@ -96,6 +97,14 @@ function ChallengeRow({
                 title="Highest average % of weekly step & MVPA goals received as donations"
               >
                 ♿ Beggar
+              </span>
+            )}
+            {isMvpaParasite && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lime-500/40 bg-lime-500/15 px-2 py-0.5 text-xs font-semibold text-lime-300"
+                title="Longest stretch this week without self-logging any MVPA minutes"
+              >
+                🪱 MVPA Parasite
               </span>
             )}
             {isCurrentUser && (
@@ -155,6 +164,18 @@ function ChallengeRow({
     </>
   )
 
+  if (isMvpaParasite) {
+    return (
+      <li className="parasite-border-wrap">
+        <div
+          className={`parasite-border-inner ${isTopReceiver ? 'beggar-cat-inner' : ''} ${isWeeklySoldier ? 'soldier-cat-inner' : ''}`}
+        >
+          {rowContent}
+        </div>
+      </li>
+    )
+  }
+
   if (isTopReceiver) {
     return (
       <li className="beggar-pole-wrap">
@@ -188,7 +209,14 @@ function ChallengeRow({
   )
 }
 
-function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId, weeklyBeggarUserId }) {
+function ChallengeList({
+  users,
+  mode,
+  currentUserId,
+  weeklySoldierUserId,
+  weeklyBeggarUserId,
+  weeklyMvpaParasiteUserId,
+}) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
   }
@@ -218,6 +246,7 @@ function ChallengeList({ users, mode, currentUserId, weeklySoldierUserId, weekly
           isCurrentUser={user.user_id === currentUserId}
           isTopReceiver={mode === 'weekly' && user.user_id === weeklyBeggarUserId}
           isWeeklySoldier={mode === 'weekly' && user.user_id === weeklySoldierUserId}
+          isMvpaParasite={mode === 'weekly' && user.user_id === weeklyMvpaParasiteUserId}
           showGoalPies={mode === 'weekly'}
         />
       ))}
@@ -230,6 +259,7 @@ export default function Leaderboard({
   allTimeStats,
   weeklySoldierUserId,
   weeklyBeggarUserId,
+  weeklyMvpaParasiteUserId,
   loading,
   currentUserId,
 }) {
@@ -329,6 +359,7 @@ export default function Leaderboard({
           currentUserId={currentUserId}
           weeklySoldierUserId={weeklySoldierUserId}
           weeklyBeggarUserId={weeklyBeggarUserId}
+          weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
         />
       </div>
     </section>

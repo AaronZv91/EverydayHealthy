@@ -3,6 +3,7 @@ import {
   buildChallengeLeaderboard,
   fetchChallengeSourceData,
   findFirstDualGoalAchieverUserId,
+  findMvpaParasiteUserId,
   findTopReceiverUserId,
   sortChallengeLeaderboard,
 } from '../lib/challengeStats'
@@ -17,6 +18,7 @@ export function useChallengeLeaderboard() {
   const [allTimeStats, setAllTimeStats] = useState([])
   const [weeklySoldierUserId, setWeeklySoldierUserId] = useState(null)
   const [weeklyBeggarUserId, setWeeklyBeggarUserId] = useState(null)
+  const [weeklyMvpaParasiteUserId, setWeeklyMvpaParasiteUserId] = useState(null)
   const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -63,6 +65,13 @@ export function useChallengeLeaderboard() {
         findTopReceiverUserId(weekly, {
           stepGoal: WEEKLY_GOALS.steps,
           mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+        })
+      )
+      setWeeklyMvpaParasiteUserId(
+        findMvpaParasiteUserId({
+          activities,
+          profiles,
+          weekStart,
         })
       )
 
@@ -124,6 +133,7 @@ export function useChallengeLeaderboard() {
     allTimeStats,
     weeklySoldierUserId,
     weeklyBeggarUserId,
+    weeklyMvpaParasiteUserId,
     predictions,
     loading,
     refreshing,
