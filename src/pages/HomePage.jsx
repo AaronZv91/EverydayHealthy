@@ -79,7 +79,7 @@ export default function HomePage({ user, onSignOut }) {
         </div>
       </header>
 
-      <Ticker rewards={rewards} loading={rewardsLoading} empathyMode={empathyMode} />
+      {!empathyMode && <Ticker rewards={rewards} loading={rewardsLoading} />}
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         <Leaderboard
