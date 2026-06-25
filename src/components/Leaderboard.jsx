@@ -160,6 +160,7 @@ function ChallengeRow({
     <>
       {isTopReceiver && <div className="beggar-cat-bg" aria-hidden="true" />}
       {isWeeklySoldier && <div className="soldier-cat-bg" aria-hidden="true" />}
+      {isMvpaParasite && <div className="parasite-cat-bg" aria-hidden="true" />}
       <div className="relative z-10">{rowBody}</div>
     </>
   )
@@ -180,6 +181,14 @@ function ChallengeRow({
     return (
       <li className="soldier-cat-wrap">
         <div className="soldier-cat-inner px-3 py-3">{rowContent}</div>
+      </li>
+    )
+  }
+
+  if (isMvpaParasite) {
+    return (
+      <li className="parasite-cat-wrap">
+        <div className="parasite-cat-inner px-3 py-3">{rowContent}</div>
       </li>
     )
   }

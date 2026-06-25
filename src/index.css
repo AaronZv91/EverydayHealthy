@@ -159,4 +159,38 @@
       rgb(15 23 42 / 0.75) 100%
     );
   }
+
+  .parasite-cat-wrap {
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(132 204 22 / 0.35);
+  }
+
+  .parasite-cat-inner {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .parasite-cat-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url('/mvpa-parasite.png');
+    background-size: cover;
+    background-position: right center;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .parasite-cat-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgb(15 23 42 / 0.94) 0%,
+      rgb(15 23 42 / 0.62) 50%,
+      rgb(15 23 42 / 0.78) 100%
+    );
+  }
 }
