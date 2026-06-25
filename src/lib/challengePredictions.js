@@ -421,9 +421,20 @@ function formatCount(n) {
   return Math.round(n ?? 0).toLocaleString('en-US')
 }
 
-function buildFirstCompleterReason(candidate, hasHistory) {
+function buildFirstCompleterReason(candidate, hasHistory, empathyMode = false) {
   const { history, currentCombinedPct, currentTotalSteps, currentTotalMvpa, isActiveThisWeek } =
     candidate
+
+  if (empathyMode) {
+    return buildReason([
+      isActiveThisWeek
+        ? `Your steady effort this week — ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA minutes — is genuinely inspiring.`
+        : 'Whenever you return, you will be welcomed exactly as you are.',
+      currentCombinedPct > 0
+        ? `${Math.round(currentCombinedPct * 100)}% toward both goals already — please celebrate yourself and rest when your body asks.`
+        : 'There is no rush; your wellbeing matters more than any number.',
+    ])
+  }
 
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
@@ -450,9 +461,21 @@ function buildFirstCompleterReason(candidate, hasHistory) {
   ])
 }
 
-function buildLastPlaceReason(candidate, hasHistory) {
+function buildLastPlaceReason(candidate, hasHistory, empathyMode = false) {
   const { history, currentCombinedPct, currentTotalSteps, currentTotalMvpa, isActiveThisWeek } =
     candidate
+
+  if (empathyMode) {
+    return buildReason([
+      isActiveThisWeek
+        ? `You are at ${Math.round(currentCombinedPct * 100)}% of your goals — every step you have taken matters deeply.`
+        : 'If this week has been heavy, please be gentle with yourself. Rest is a valid and loving choice.',
+      'There is no shame in moving at your own pace. You deserve kindness, not comparison.',
+      isActiveThisWeek
+        ? `${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA minutes show up as care for yourself.`
+        : null,
+    ])
+  }
 
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
@@ -478,8 +501,19 @@ function buildLastPlaceReason(candidate, hasHistory) {
   ])
 }
 
-function buildBeggarReason(candidate, hasHistory) {
+function buildBeggarReason(candidate, hasHistory, empathyMode = false) {
   const { history, currentReceivedPct, isActiveThisWeek } = candidate
+
+  if (empathyMode) {
+    return buildReason([
+      currentReceivedPct > 0
+        ? `Friends have shared ${Math.round(currentReceivedPct * 100)}% of your weekly goals with you — what a beautiful act of community support.`
+        : 'Receiving help from friends is a sign of trust and connection, not weakness.',
+      isActiveThisWeek
+        ? 'Your own effort and the kindness around you both deserve gratitude.'
+        : 'Please rest if you need to — you are held by this group either way.',
+    ])
+  }
 
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
@@ -535,6 +569,7 @@ function buildPlayerPrediction(candidate, ctx) {
     mvpaGoal,
     hasHistory,
     rank,
+    empathyMode = false,
     flags: { isLeader, isFirstPick, isLastPick, isBeggarPick, isMvpaParasite },
     parasiteByUser,
   } = ctx
@@ -590,16 +625,31 @@ function buildPlayerPrediction(candidate, ctx) {
   }
 
   const labels = []
-  if (isLeader) labels.push({ emoji: '👑', label: 'Leader' })
-  if (isFirstPick) labels.push({ emoji: '🪖', label: 'First pick' })
-  if (isLastPick) labels.push({ emoji: '🐌', label: 'Last pick' })
-  if (isBeggarPick) labels.push({ emoji: '♿', label: 'Beggar pick' })
-  if (isMvpaParasite) labels.push({ emoji: '🪱', label: 'MVPA Parasite' })
-  if (pct >= 100) labels.push({ emoji: '✅', label: 'Goals met' })
+  if (!empathyMode) {
+    if (isLeader) labels.push({ emoji: '👑', label: 'Leader' })
+    if (isFirstPick) labels.push({ emoji: '🪖', label: 'First pick' })
+    if (isLastPick) labels.push({ emoji: '🐌', label: 'Last pick' })
+    if (isBeggarPick) labels.push({ emoji: '♿', label: 'Beggar pick' })
+    if (isMvpaParasite) labels.push({ emoji: '🪱', label: 'MVPA Parasite' })
+    if (pct >= 100) labels.push({ emoji: '✅', label: 'Goals met' })
+  }
 
   let outlook
   const trendNote = history.trend?.label ? ` Trend: ${history.trend.label}.` : ''
-  if (!isActiveThisWeek) {
+  if (empathyMode) {
+    if (!isActiveThisWeek) {
+      outlook =
+        'You have not logged activity this week yet, and that is completely okay. Please listen to your body — rest, reset, and return whenever feels right for you.'
+    } else if (pct >= 100) {
+      outlook = `You have reached ${pct}% of both goals — what a meaningful effort. Please celebrate yourself, and remember that rest is part of staying healthy.${trendNote}`
+    } else if (pct >= 50) {
+      outlook = `You are at ${pct}% toward your goals — a genuine step forward. Keep honoring your body; slow and steady is perfectly wonderful.${trendNote}`
+    } else if (pct > 0) {
+      outlook = `You are at ${pct}% so far, and every bit counts. If you feel tired, please give yourself permission to rest — you deserve care, not pressure.${trendNote}`
+    } else {
+      outlook = `This week is still open, and you are enough exactly as you are. Please take rest whenever you need it — your wellbeing comes first.${trendNote}`
+    }
+  } else if (!isActiveThisWeek) {
     outlook = `No activity this week.${trendNote} Next week outlook depends on showing up — currently projected to trail the group.`
   } else if (isFirstPick && pct >= 100) {
     outlook = `Already at ${pct}% of both goals.${trendNote} Top forecast to finish first next week if this pace continues.`
@@ -694,6 +744,7 @@ export function buildChallengePredictions({
   weekStart,
   stepGoal,
   mvpaGoal,
+  empathyMode = false,
 }) {
   const currentWeek = normalizeWeekStart(weekStart)
   const allWeeks = getDistinctWeeks(activities, rewards)
@@ -908,6 +959,7 @@ export function buildChallengePredictions({
         stepGoal,
         mvpaGoal,
         hasHistory,
+        empathyMode,
         rank: rankByUser.get(candidate.userId) ?? profiles.length,
         parasiteByUser,
         flags: {
@@ -921,21 +973,37 @@ export function buildChallengePredictions({
     )
     .sort((a, b) => a.rank - b.rank || a.displayName.localeCompare(b.displayName))
 
-  const summaryParts = [
-    `${activeThisWeek}/${profiles.length} players active this week.`,
-    `Group at ${groupGoal.groupCombinedPct}% of combined target (${formatCount(groupGoal.totalStepsLogged)}/${formatCount(groupGoal.totalStepGoal)} steps, ${groupGoal.groupMvpaPct}% MVPA).`,
-    completedThisWeek > 0
-      ? `${completedThisWeek} already completed both goals.`
-      : 'No one has finished both goals yet.',
-    leader && (leader.total_steps ?? 0) > 0
-      ? `${leader.display_name} leads the current board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps.`
-      : weekIsEmpty && hasHistory
-        ? 'No activity this week yet — board ranks follow last week until someone logs.'
-        : null,
-    hasHistory
-      ? `Forecasts blend ${historyWeeks.length} past week(s) (30%) with this week's pace (70%).`
-      : 'Forecasts rely mostly on this week because history is limited.',
-  ]
+  const summaryParts = empathyMode
+    ? [
+        `${activeThisWeek}/${profiles.length} friends are moving together this week — every pace is valid and worthy of respect.`,
+        `The group is at ${groupGoal.groupCombinedPct}% of our shared goal. Please be proud of whatever you have contributed, and rest whenever you need to.`,
+        completedThisWeek > 0
+          ? `${completedThisWeek} have already reached both goals — wonderful progress. Remember that recovery is part of caring for yourself.`
+          : 'There is still time this week. Please listen to your body and take rest without guilt.',
+        leader && (leader.total_steps ?? 0) > 0
+          ? `${leader.display_name} is leading the board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps — celebrate the group's collective effort.`
+          : weekIsEmpty && hasHistory
+            ? 'A quiet week so far — that is okay. You are welcome to show up gently, or simply rest.'
+            : null,
+        hasHistory
+          ? "Forecasts blend past weeks with this week's pace — please treat them as gentle guidance, not pressure."
+          : 'Forecasts are based on this week only — please move at the pace that feels right for you.',
+      ]
+    : [
+        `${activeThisWeek}/${profiles.length} players active this week.`,
+        `Group at ${groupGoal.groupCombinedPct}% of combined target (${formatCount(groupGoal.totalStepsLogged)}/${formatCount(groupGoal.totalStepGoal)} steps, ${groupGoal.groupMvpaPct}% MVPA).`,
+        completedThisWeek > 0
+          ? `${completedThisWeek} already completed both goals.`
+          : 'No one has finished both goals yet.',
+        leader && (leader.total_steps ?? 0) > 0
+          ? `${leader.display_name} leads the current board with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps.`
+          : weekIsEmpty && hasHistory
+            ? 'No activity this week yet — board ranks follow last week until someone logs.'
+            : null,
+        hasHistory
+          ? `Forecasts blend ${historyWeeks.length} past week(s) (30%) with this week's pace (70%).`
+          : 'Forecasts rely mostly on this week because history is limited.',
+      ]
 
   return {
     summary: summaryParts.filter(Boolean).join(' '),
@@ -967,7 +1035,7 @@ export function buildChallengePredictions({
                 (firstCompleter.history.trend?.momentum ?? 0) * 8
             )
           ),
-          reason: buildFirstCompleterReason(firstCompleter, hasHistory),
+          reason: buildFirstCompleterReason(firstCompleter, hasHistory, empathyMode),
         }
       : null,
     lastPlace: lastPlace
@@ -984,7 +1052,7 @@ export function buildChallengePredictions({
                 (lastPlace.history.trend?.momentum ?? 0) * 8
             )
           ),
-          reason: buildLastPlaceReason(lastPlace, hasHistory),
+          reason: buildLastPlaceReason(lastPlace, hasHistory, empathyMode),
         }
       : null,
     beggar: beggar
@@ -1000,7 +1068,7 @@ export function buildChallengePredictions({
                 beggar.currentReceivedPct * 10
             )
           ),
-          reason: buildBeggarReason(beggar, hasHistory),
+          reason: buildBeggarReason(beggar, hasHistory, empathyMode),
         }
       : null,
   }

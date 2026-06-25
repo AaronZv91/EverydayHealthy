@@ -108,6 +108,7 @@ type MvpaParasitePayload = {
 } | null
 
 type RequestBody = {
+  empathyMode?: boolean
   weekContext: WeekContext | null
   mvpaParasite: MvpaParasitePayload
   summaryContext: {
@@ -169,7 +170,103 @@ function formatEventForPrompt(event: PlayerEvent) {
   return `[${event.at}] received from ${event.from} ${event.item}: ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
 }
 
+function buildEmpathyPrompt(body: RequestBody) {
+  const { weekContext, summaryContext, picks, players } = body
+  const historyBlock =
+    summaryContext.historicalWeekSummaries.length > 0
+      ? summaryContext.historicalWeekSummaries
+          .map(
+            (week) =>
+              `- ${week.week}: leader ${week.leader ?? 'n/a'} (${week.leaderGoalPct}%) · first ${week.firstCompleter ?? 'n/a'} · beggar ${week.beggar ?? 'n/a'} · last ${week.lastPlace ?? 'n/a'} · ${week.completions} completed both goals · ${week.activePlayers} active`
+          )
+          .join('\n')
+      : 'No completed past weeks yet.'
+
+  const weekBlock = weekContext
+    ? `Individual weekly goal (each player): ${weekContext.individualStepGoal.toLocaleString()} steps + ${weekContext.individualMvpaGoal} MVPA minutes.
+Group combined weekly goal (${weekContext.playerCount} players): ${weekContext.totalStepGoal.toLocaleString()} steps + ${weekContext.totalMvpaGoal} MVPA minutes total.
+Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.daysRemaining} day(s) left, ${weekContext.weekProgressPct}% through the week).
+Group current state: ${weekContext.groupPaceLine}
+${weekContext.paceSummary}
+Speak gently about groupCombinedPct (${weekContext.groupCombinedPct}%) and each player's individual pace. Encourage rest when someone seems behind or inactive — never shame.`
+    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per player (SGT). Speak with warmth about group progress.'
+
+  return `You write short, deeply supportive prediction copy for a weekly fitness challenge app.
+
+Tone: MAXIMUM empathy — polite, gentle, encouraging, and uplifting. Celebrate every effort, no matter how small. Validate rest and recovery; explicitly suggest rest when someone may be pushing too hard, inactive, or struggling. Sound like a caring coach who wants everyone to feel safe, valued, and enough.
+
+Style cues (use the vibe, don't copy verbatim):
+- "You've shown up in your own way this week — that's something to honour."
+- "If your body is asking for rest, please listen. Recovery is part of the journey."
+- "Every step counts, and so does taking care of yourself."
+- "There is no rush — you are worthy of kindness exactly as you are."
+
+Hard rules (never break these):
+- NEVER use sarcasm, trash talk, roasts, shame, guilt, or negativity
+- NEVER use labels like beggar, parasite, or last place in a harsh way — reframe with compassion
+- NO pressure — encourage without demanding more
+- Acknowledge struggle with kindness; celebrate community support as love, not weakness
+- One or two sentences max per field — warm, not essays
+
+The stats below are authoritative. Do NOT invent numbers or change who was picked.
+Anchor commentary to weekly goals, the current weekday, days remaining, and pace with compassion.
+Honor activity notes with empathy — validate feelings, gym wins, and honest confessions.
+Treat rewards as acts of friendship and community care.
+If someone has been inactive or low on MVPA, gently suggest rest and self-compassion — never mock.
+
+${weekBlock}
+
+Context:
+- ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
+
+Past week results (oldest to newest):
+${historyBlock}
+
+Top picks (confidence = model likelihood % — describe gently, not competitively):
+- Most likely to finish both goals next week: ${picks.firstCompleter ? `${picks.firstCompleter.name} (${picks.firstCompleter.confidence}%)` : 'none'}
+- May need the most encouragement: ${picks.lastPlace ? `${picks.lastPlace.name} (${picks.lastPlace.confidence}%)` : 'none'}
+- Receiving the most community support: ${picks.beggar ? `${picks.beggar.name} (${picks.beggar.confidence}%)` : 'none'}
+
+Every player:
+${players
+  .map((p) => {
+    const logLines =
+      p.logs.length > 0
+        ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
+        : '    · no logs yet'
+    const rewardLines =
+      p.recentRewards.length > 0
+        ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
+        : '    · no named rewards yet'
+    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine}
+  Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
+  Community support: ${p.rewardLine || 'none'}
+  Recent rewards:
+${rewardLines}
+  Event log (chronological, SGT):
+${logLines}`
+  })
+  .join('\n\n')}
+
+Return JSON only:
+{
+  "summary": "2-3 warm, encouraging sentences on the group's current state — invite rest where needed",
+  "firstCompleterReason": "1-2 gentle, uplifting sentences for the strong-finisher pick",
+  "lastPlaceReason": "1-2 compassionate sentences for whoever may need extra care — suggest rest without shame",
+  "beggarReason": "1-2 kind sentences celebrating community support and friendship",
+  "players": [
+    { "userId": "<exact userId>", "outlook": "1-2 sentence warm, encouraging outlook — suggest rest if appropriate" }
+  ]
+}
+
+Include every player in the players array with their exact userId.`
+}
+
 function buildPrompt(body: RequestBody) {
+  if (body.empathyMode) {
+    return buildEmpathyPrompt(body)
+  }
+
   const { weekContext, mvpaParasite, summaryContext, picks, players } = body
   const historyBlock =
     summaryContext.historicalWeekSummaries.length > 0

@@ -198,7 +198,16 @@ function ScrollingTicker({ rewards, onOpen }) {
   )
 }
 
-function TickerShell({ children }) {
+function TickerShell({ children, empathyMode = false }) {
+  if (empathyMode) {
+    return (
+      <div className="relative overflow-hidden border-y border-sky-200/70 bg-gradient-to-r from-sky-50/95 via-white/90 to-violet-50/95 shadow-[0_4px_24px_rgba(125,211,252,0.2)]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(186,230,253,0.35)_0%,_transparent_65%)]" />
+        {children}
+      </div>
+    )
+  }
+
   return (
     <div className="relative overflow-hidden border-y-2 border-amber-400/60 bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 shadow-[0_4px_24px_rgba(251,191,36,0.15)]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(251,191,36,0.12)_0%,_transparent_60%)]" />
@@ -207,12 +216,12 @@ function TickerShell({ children }) {
   )
 }
 
-export default function Ticker({ rewards, loading }) {
+export default function Ticker({ rewards, loading, empathyMode = false }) {
   const [open, setOpen] = useState(false)
 
   if (loading) {
     return (
-      <TickerShell>
+      <TickerShell empathyMode={empathyMode}>
         <p className="flex min-h-[3.75rem] items-center justify-center py-4 text-sm font-medium text-amber-200/70">
           Loading rewards feed…
         </p>
@@ -222,7 +231,7 @@ export default function Ticker({ rewards, loading }) {
 
   if (!rewards.length) {
     return (
-      <TickerShell>
+      <TickerShell empathyMode={empathyMode}>
         <p className="flex min-h-[3.75rem] items-center justify-center py-4 text-sm font-medium text-amber-200/80">
           No rewards yet — be the first to send one! 🎁
         </p>
@@ -232,7 +241,7 @@ export default function Ticker({ rewards, loading }) {
 
   return (
     <>
-      <TickerShell>
+      <TickerShell empathyMode={empathyMode}>
         <ScrollingTicker rewards={rewards} onOpen={() => setOpen(true)} />
       </TickerShell>
 

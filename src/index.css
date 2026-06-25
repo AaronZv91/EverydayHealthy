@@ -193,4 +193,124 @@
       rgb(15 23 42 / 0.28) 100%
     );
   }
+
+  .app-header {
+    @apply border-slate-800 bg-slate-900/80;
+  }
+
+  .app-logo {
+    @apply bg-brand-600;
+  }
+
+  .empathy-toggle {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-700 sm:px-4 sm:py-2.5 sm:text-sm;
+  }
+
+  .empathy-toggle-on {
+    @apply border-sky-300/60 bg-gradient-to-r from-sky-100/90 via-white/90 to-violet-100/90 text-sky-800 shadow-[0_0_20px_rgba(125,211,252,0.35)];
+  }
+}
+
+html.empathy-mode body {
+  background: linear-gradient(180deg, #eef6ff 0%, #f5f0ff 38%, #fff9f0 100%);
+  color: rgb(30 41 59);
+  min-height: 100vh;
+}
+
+html.empathy-mode .app-header {
+  border-color: rgb(186 230 253 / 0.65);
+  background: rgb(255 255 255 / 0.88);
+  box-shadow: 0 4px 24px rgb(186 230 253 / 0.2);
+}
+
+html.empathy-mode .app-logo {
+  background: linear-gradient(135deg, rgb(125 211 252), rgb(196 181 253));
+  color: rgb(30 58 95);
+}
+
+html.empathy-mode .card {
+  border-color: rgb(186 230 253 / 0.55);
+  background: rgb(255 255 255 / 0.78);
+  box-shadow: 0 8px 32px rgb(186 230 253 / 0.18);
+  color: rgb(51 65 85);
+}
+
+html.empathy-mode .input {
+  @apply border-sky-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-sky-400 focus:ring-sky-200/50;
+}
+
+html.empathy-mode .btn-primary {
+  @apply bg-sky-500 hover:bg-sky-600;
+  color: rgb(255 255 255);
+}
+
+html.empathy-mode .btn-secondary {
+  @apply border-sky-200 bg-white text-slate-700 hover:bg-sky-50;
+}
+
+html.empathy-mode .text-white {
+  color: rgb(30 41 59);
+}
+
+html.empathy-mode .text-slate-100 {
+  color: rgb(51 65 85);
+}
+
+html.empathy-mode .text-slate-200 {
+  color: rgb(71 85 105);
+}
+
+html.empathy-mode .text-slate-300 {
+  color: rgb(71 85 105);
+}
+
+html.empathy-mode .text-slate-400 {
+  color: rgb(100 116 139);
+}
+
+html.empathy-mode .text-slate-500 {
+  color: rgb(100 116 139);
+}
+
+html.empathy-mode .text-brand-400 {
+  color: rgb(14 116 144);
+}
+
+html.empathy-mode .text-emerald-400 {
+  color: rgb(5 150 105);
+}
+
+html.empathy-mode .bg-slate-800 {
+  background-color: rgb(241 245 249);
+}
+
+html.empathy-mode .bg-slate-800\/30,
+html.empathy-mode .bg-slate-800\/35,
+html.empathy-mode .bg-slate-800\/40 {
+  background-color: rgb(248 250 252 / 0.85);
+}
+
+html.empathy-mode .bg-slate-900\/80 {
+  background-color: rgb(248 250 252 / 0.9);
+}
+
+html.empathy-mode .border-slate-800,
+html.empathy-mode .border-slate-700 {
+  border-color: rgb(226 232 240);
+}
+
+html.empathy-mode .border-emerald-500\/40 {
+  border-color: rgb(167 243 208 / 0.8);
+}
+
+html.empathy-mode .bg-emerald-950\/20 {
+  background-color: rgb(236 253 245 / 0.75);
+}
+
+html.empathy-mode .bg-brand-950\/20 {
+  background-color: rgb(240 249 255 / 0.8);
+}
+
+html.empathy-mode .border-brand-500\/30 {
+  border-color: rgb(186 230 253 / 0.8);
 }

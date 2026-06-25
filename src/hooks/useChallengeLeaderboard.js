@@ -13,7 +13,7 @@ import { WEEKLY_GOALS, requireSupabase } from '../lib/supabaseClient'
 
 const REFETCH_DEBOUNCE_MS = 350
 
-export function useChallengeLeaderboard() {
+export function useChallengeLeaderboard(empathyMode = false) {
   const [weeklyStats, setWeeklyStats] = useState([])
   const [allTimeStats, setAllTimeStats] = useState([])
   const [weeklySoldierUserId, setWeeklySoldierUserId] = useState(null)
@@ -26,6 +26,8 @@ export function useChallengeLeaderboard() {
   const isInitialLoad = useRef(true)
   const debounceTimer = useRef(null)
   const copyScheduler = useRef(null)
+  const sourceRef = useRef(null)
+  const empathyModeRef = useRef(empathyMode)
 
   if (!copyScheduler.current) {
     copyScheduler.current = createPredictionCopyScheduler({
@@ -34,6 +36,20 @@ export function useChallengeLeaderboard() {
       onCopyError: (fallback) => setPredictions(fallback),
     })
   }
+
+  const schedulePredictions = useCallback((source, mode) => {
+    const nextPredictions = buildChallengePredictions({
+      profiles: source.profiles,
+      activities: source.activities,
+      rewards: source.rewards,
+      weekStart: source.weekStart,
+      stepGoal: WEEKLY_GOALS.steps,
+      mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
+      empathyMode: mode,
+    })
+    setPredictions(nextPredictions)
+    copyScheduler.current.schedule(nextPredictions, mode)
+  }, [])
 
   const fetchLeaderboard = useCallback(async () => {
     const isInitial = isInitialLoad.current
@@ -75,16 +91,9 @@ export function useChallengeLeaderboard() {
         })
       )
 
-      const nextPredictions = buildChallengePredictions({
-        profiles,
-        activities,
-        rewards,
-        weekStart,
-        stepGoal: WEEKLY_GOALS.steps,
-        mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
-      })
-
-      copyScheduler.current.schedule(nextPredictions)
+      const source = { profiles, activities, rewards, weekStart }
+      sourceRef.current = source
+      schedulePredictions(source, empathyModeRef.current)
     } catch (error) {
       console.error(error)
     } finally {
@@ -94,7 +103,14 @@ export function useChallengeLeaderboard() {
       }
       setRefreshing(false)
     }
-  }, [])
+  }, [schedulePredictions])
+
+  useEffect(() => {
+    empathyModeRef.current = empathyMode
+    if (sourceRef.current) {
+      schedulePredictions(sourceRef.current, empathyMode)
+    }
+  }, [empathyMode, schedulePredictions])
 
   const scheduleRefetch = useCallback(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)

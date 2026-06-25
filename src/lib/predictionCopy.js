@@ -2,8 +2,9 @@ import { isSupabaseConfigured, requireSupabase } from './supabaseClient'
 
 const AI_COPY_DEBOUNCE_MS = 1000
 
-function fingerprintPayload(predictions) {
+function fingerprintPayload(predictions, empathyMode = false) {
   return {
+    empathyMode,
     weekContext: predictions.weekContext ?? null,
     mvpaParasite: predictions.mvpaParasite ?? null,
     hasHistory: predictions.hasHistory,
@@ -47,14 +48,15 @@ function fingerprintPayload(predictions) {
   }
 }
 
-export async function fingerprintPredictions(predictions) {
-  const data = new TextEncoder().encode(JSON.stringify(fingerprintPayload(predictions)))
+export async function fingerprintPredictions(predictions, empathyMode = false) {
+  const data = new TextEncoder().encode(JSON.stringify(fingerprintPayload(predictions, empathyMode)))
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   return [...new Uint8Array(hashBuffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export function buildGeminiPayload(predictions) {
+export function buildGeminiPayload(predictions, empathyMode = false) {
   return {
+    empathyMode,
     weekContext: predictions.weekContext ?? null,
     mvpaParasite: predictions.mvpaParasite
       ? {
@@ -155,7 +157,7 @@ export function mergePredictionCopy(predictions, copy) {
   }
 }
 
-export async function fetchPredictionCopy(predictions) {
+export async function fetchPredictionCopy(predictions, empathyMode = false) {
   const client = requireSupabase()
   const {
     data: { session },
@@ -177,7 +179,7 @@ export async function fetchPredictionCopy(predictions) {
       apikey: anonKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(buildGeminiPayload(predictions)),
+    body: JSON.stringify(buildGeminiPayload(predictions, empathyMode)),
   })
 
   let data = null
@@ -209,11 +211,11 @@ export function createPredictionCopyScheduler({ onReviewingChange, onCopyReady, 
     onReviewingChange(false)
   }
 
-  async function schedule(predictions) {
+  async function schedule(predictions, empathyMode = false) {
     if (debounceTimer) clearTimeout(debounceTimer)
 
     const requestGeneration = ++generation
-    const hash = await fingerprintPredictions(predictions)
+    const hash = await fingerprintPredictions(predictions, empathyMode)
 
     if (hash === lastAppliedHash) {
       onReviewingChange(false)
@@ -227,7 +229,7 @@ export function createPredictionCopyScheduler({ onReviewingChange, onCopyReady, 
       if (requestGeneration !== generation) return
 
       try {
-        const copy = await fetchPredictionCopy(predictions)
+        const copy = await fetchPredictionCopy(predictions, empathyMode)
         if (requestGeneration !== generation) return
 
         if (!copy) {

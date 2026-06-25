@@ -64,7 +64,9 @@ function ChallengeRow({
   isWeeklySoldier,
   isMvpaParasite,
   showGoalPies,
+  empathyMode = false,
 }) {
+  const showFlair = !empathyMode
   const rowBody = (
     <>
       <div className="mb-3 flex items-center gap-3">
@@ -84,7 +86,7 @@ function ChallengeRow({
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate font-medium text-slate-100">
             <span className="truncate">{user.display_name}</span>
-            {isWeeklySoldier && (
+            {showFlair && isWeeklySoldier && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-300"
                 title="First to hit 100% on both weekly step and MVPA goals"
@@ -92,7 +94,7 @@ function ChallengeRow({
                 🪖 Soldier
               </span>
             )}
-            {isTopReceiver && (
+            {showFlair && isTopReceiver && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-reward-500/40 bg-reward-500/15 px-2 py-0.5 text-xs font-semibold text-reward-400"
                 title="Highest average % of weekly step & MVPA goals received as donations"
@@ -100,7 +102,7 @@ function ChallengeRow({
                 ♿ Beggar
               </span>
             )}
-            {isMvpaParasite && (
+            {showFlair && isMvpaParasite && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lime-500/40 bg-lime-500/15 px-2 py-0.5 text-xs font-semibold text-lime-300"
                 title="No self-logged MVPA for 36+ hours — longest dry spell this week"
@@ -156,6 +158,20 @@ function ChallengeRow({
       </div>
     </>
   )
+
+  if (!showFlair) {
+    return (
+      <li
+        className={`rounded-xl border px-3 py-3 ${
+          isCurrentUser
+            ? 'border-emerald-500/40 bg-emerald-950/20'
+            : 'border-slate-800 bg-slate-800/40'
+        }`}
+      >
+        {rowBody}
+      </li>
+    )
+  }
 
   const rowContent = (
     <>
@@ -222,6 +238,7 @@ function ChallengeList({
   weeklySoldierUserId,
   weeklyBeggarUserId,
   weeklyMvpaParasiteUserId,
+  empathyMode = false,
 }) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
@@ -254,6 +271,7 @@ function ChallengeList({
           isWeeklySoldier={mode === 'weekly' && user.user_id === weeklySoldierUserId}
           isMvpaParasite={mode === 'weekly' && user.user_id === weeklyMvpaParasiteUserId}
           showGoalPies={mode === 'weekly'}
+          empathyMode={empathyMode}
         />
       ))}
     </ol>
@@ -268,6 +286,7 @@ export default function Leaderboard({
   weeklyMvpaParasiteUserId,
   loading,
   currentUserId,
+  empathyMode = false,
 }) {
   const [mode, setMode] = useState('weekly')
   const users = mode === 'weekly' ? weeklyStats : allTimeStats
@@ -366,6 +385,7 @@ export default function Leaderboard({
           weeklySoldierUserId={weeklySoldierUserId}
           weeklyBeggarUserId={weeklyBeggarUserId}
           weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
+          empathyMode={empathyMode}
         />
       </div>
     </section>

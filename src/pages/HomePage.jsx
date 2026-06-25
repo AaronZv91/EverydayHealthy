@@ -4,12 +4,14 @@ import Leaderboard from '../components/Leaderboard'
 import PredictionBoard from '../components/PredictionBoard'
 import RewardForm from '../components/RewardForm'
 import Ticker from '../components/Ticker'
+import { useEmpathyMode } from '../hooks/useEmpathyMode'
 import { useProfiles, useWeeklyStats } from '../hooks/useWeeklyStats'
 import { useChallengeLeaderboard } from '../hooks/useChallengeLeaderboard'
 import { useLogActivity, useRewards } from '../hooks/useRewards'
 
 export default function HomePage({ user, onSignOut }) {
   const userId = user?.id
+  const { empathyMode, toggleEmpathyMode } = useEmpathyMode()
   const { stats, loading: statsLoading, refetch: refetchStats } = useWeeklyStats(userId)
   const { profiles, refetch: refetchProfiles } = useProfiles()
   const { rewards, loading: rewardsLoading, sendReward } = useRewards()
@@ -24,7 +26,7 @@ export default function HomePage({ user, onSignOut }) {
     refreshing: leaderboardRefreshing,
     aiCopyLoading,
     refetch: refetchLeaderboard,
-  } = useChallengeLeaderboard()
+  } = useChallengeLeaderboard(empathyMode)
   const { logActivity } = useLogActivity()
 
   async function handleRefresh() {
@@ -33,18 +35,33 @@ export default function HomePage({ user, onSignOut }) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+      <header className="app-header border-b backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-lg">
-              🏃
+            <span className="app-logo flex h-10 w-10 items-center justify-center rounded-xl text-lg">
+              {empathyMode ? '☁️' : '🏃'}
             </span>
             <div>
               <h1 className="text-lg font-bold text-white">EverydayHealthy</h1>
-              <p className="text-xs text-slate-400">Health rewards · weekly goals</p>
+              <p className="text-xs text-slate-400">
+                {empathyMode ? 'Gentle encouragement · rest is welcome' : 'Health rewards · weekly goals'}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              type="button"
+              className={`empathy-toggle ${empathyMode ? 'empathy-toggle-on' : ''}`}
+              onClick={toggleEmpathyMode}
+              aria-pressed={empathyMode}
+              title={
+                empathyMode
+                  ? 'Turn off Empathy Mode — return to competitive view'
+                  : 'Turn on Empathy Mode — gentle tone, no labels or backgrounds'
+              }
+            >
+              {empathyMode ? '☁️ Empathy Mode' : 'Empathy Mode'}
+            </button>
             <span className="hidden text-sm text-slate-400 sm:inline">
               {user?.email}
             </span>
@@ -55,7 +72,7 @@ export default function HomePage({ user, onSignOut }) {
         </div>
       </header>
 
-      <Ticker rewards={rewards} loading={rewardsLoading} />
+      <Ticker rewards={rewards} loading={rewardsLoading} empathyMode={empathyMode} />
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         <Leaderboard
@@ -66,6 +83,7 @@ export default function HomePage({ user, onSignOut }) {
           weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
           loading={leaderboardLoading}
           currentUserId={userId}
+          empathyMode={empathyMode}
         />
 
         <PredictionBoard
@@ -73,6 +91,7 @@ export default function HomePage({ user, onSignOut }) {
           loading={leaderboardLoading}
           aiCopyLoading={aiCopyLoading}
           currentUserId={userId}
+          empathyMode={empathyMode}
         />
 
         <Dashboard stats={stats} loading={statsLoading} />

@@ -1,16 +1,24 @@
-function PredictionLoadingState({ title, message }) {
+function PredictionLoadingState({ title, message, empathyMode = false }) {
   return (
     <section className="card">
       <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 px-6 py-12">
         <h2 className="text-xl font-bold text-white">{title}</h2>
-        <p className="text-center text-sm font-medium text-brand-400">{message}</p>
+        <p
+          className={`text-center text-sm font-medium ${empathyMode ? 'text-sky-600' : 'text-brand-400'}`}
+        >
+          {message}
+        </p>
         <div
           className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-800"
           role="progressbar"
           aria-label={message}
           aria-busy="true"
         >
-          <div className="h-full w-1/3 rounded-full bg-brand-500 animate-gemini-bar motion-reduce:animate-none motion-reduce:translate-x-0" />
+          <div
+            className={`h-full w-1/3 rounded-full motion-reduce:animate-none motion-reduce:translate-x-0 ${
+              empathyMode ? 'bg-sky-400 animate-gemini-bar' : 'bg-brand-500 animate-gemini-bar'
+            }`}
+          />
         </div>
       </div>
     </section>
@@ -43,12 +51,14 @@ function PredictionCard({ icon, title, prediction, accentClass }) {
   )
 }
 
-function PlayerPredictionRow({ player, isCurrentUser }) {
+function PlayerPredictionRow({ player, isCurrentUser, empathyMode = false }) {
   return (
     <li
       className={`rounded-xl border px-3 py-3 ${
         isCurrentUser
-          ? 'border-brand-500/30 bg-brand-950/15'
+          ? empathyMode
+            ? 'border-sky-300/50 bg-sky-50/60'
+            : 'border-brand-500/30 bg-brand-950/15'
           : 'border-slate-800 bg-slate-800/35'
       }`}
     >
@@ -57,24 +67,27 @@ function PlayerPredictionRow({ player, isCurrentUser }) {
           {player.rank}
         </span>
         <p className="font-semibold text-slate-100">{player.displayName}</p>
-        {player.labels.map((tag) => (
-          <span
-            key={tag.label}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
-          >
-            {tag.emoji} {tag.label}
-          </span>
-        ))}
+        {!empathyMode &&
+          player.labels.map((tag) => (
+            <span
+              key={tag.label}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] font-medium text-slate-400"
+            >
+              {tag.emoji} {tag.label}
+            </span>
+          ))}
       </div>
       <p className="mb-2 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
       <p className="mb-2 text-sm leading-relaxed text-slate-300">{player.outlook}</p>
-      <div className="flex flex-wrap gap-2 text-[10px] text-slate-500">
-        <span>First {player.scores.firstCompleter}%</span>
-        <span>·</span>
-        <span>Last {player.scores.lastPlace}%</span>
-        <span>·</span>
-        <span>Beggar {player.scores.beggar}%</span>
-      </div>
+      {!empathyMode && (
+        <div className="flex flex-wrap gap-2 text-[10px] text-slate-500">
+          <span>First {player.scores.firstCompleter}%</span>
+          <span>·</span>
+          <span>Last {player.scores.lastPlace}%</span>
+          <span>·</span>
+          <span>Beggar {player.scores.beggar}%</span>
+        </div>
+      )}
     </li>
   )
 }
@@ -84,12 +97,16 @@ export default function PredictionBoard({
   loading,
   aiCopyLoading,
   currentUserId,
+  empathyMode = false,
 }) {
+  const title = empathyMode ? 'Gentle Outlook · Next Week' : 'AI Predictions · Next Week'
+
   if (loading) {
     return (
       <PredictionLoadingState
-        title="AI Predictions · Next Week"
-        message="Loading predictions…"
+        title={title}
+        message={empathyMode ? 'Preparing a gentle outlook…' : 'Loading predictions…'}
+        empathyMode={empathyMode}
       />
     )
   }
@@ -97,8 +114,13 @@ export default function PredictionBoard({
   if (aiCopyLoading) {
     return (
       <PredictionLoadingState
-        title="AI Predictions · Next Week"
-        message="Gemini Reviewing... Please wait"
+        title={title}
+        message={
+          empathyMode
+            ? 'Crafting warm encouragement… please wait'
+            : 'Gemini Reviewing... Please wait'
+        }
+        empathyMode={empathyMode}
       />
     )
   }
@@ -141,46 +163,64 @@ export default function PredictionBoard({
     <section className="card space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-xl font-bold text-white">AI Predictions · Next Week</h2>
+          <h2 className="text-xl font-bold text-white">{title}</h2>
           <p className="mt-0.5 text-sm text-slate-400">
-            Stats-driven picks · copy by Gemini
+            {empathyMode
+              ? 'Warm, supportive copy · you deserve rest'
+              : 'Stats-driven picks · copy by Gemini'}
           </p>
         </div>
         {predictions.aiGenerated ? (
-          <span className="shrink-0 text-xs text-slate-500">Gemini · Live</span>
+          <span className="shrink-0 text-xs text-slate-500">
+            {empathyMode ? 'Gemini · Gentle' : 'Gemini · Live'}
+          </span>
         ) : predictions.aiCopyFallback ? (
           <span className="shrink-0 text-xs text-slate-500">Offline summary</span>
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-brand-500/20 bg-brand-950/20 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-400">Current state</p>
+      <div
+        className={`rounded-xl border px-4 py-3 ${
+          empathyMode
+            ? 'border-sky-200/70 bg-gradient-to-br from-sky-50/90 via-white/80 to-violet-50/70'
+            : 'border-brand-500/20 bg-brand-950/20'
+        }`}
+      >
+        <p
+          className={`text-xs font-semibold uppercase tracking-wide ${
+            empathyMode ? 'text-sky-600' : 'text-brand-400'
+          }`}
+        >
+          {empathyMode ? 'Gentle check-in' : 'Current state'}
+        </p>
         <p className="mt-1 text-sm leading-relaxed text-slate-300">{predictions.summary}</p>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <PredictionCard
-          icon="🪖"
-          title="First to complete"
+          icon={empathyMode ? '✨' : '🪖'}
+          title={empathyMode ? 'Likely to finish strong' : 'First to complete'}
           prediction={firstCompleter}
-          accentClass="border-emerald-500/25"
+          accentClass={empathyMode ? 'border-sky-200/60' : 'border-emerald-500/25'}
         />
         <PredictionCard
-          icon="🐌"
-          title="Likely last place"
+          icon={empathyMode ? '🤍' : '🐌'}
+          title={empathyMode ? 'May need extra care' : 'Likely last place'}
           prediction={lastPlace}
-          accentClass="border-slate-600"
+          accentClass={empathyMode ? 'border-violet-200/60' : 'border-slate-600'}
         />
         <PredictionCard
-          icon="♿"
-          title="Likely beggar"
+          icon={empathyMode ? '🤝' : '♿'}
+          title={empathyMode ? 'Receiving community support' : 'Likely beggar'}
           prediction={beggar}
-          accentClass="border-reward-500/25"
+          accentClass={empathyMode ? 'border-amber-200/60' : 'border-reward-500/25'}
         />
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-slate-300">Every player · next week</h3>
+        <h3 className="mb-3 text-sm font-semibold text-slate-300">
+          {empathyMode ? 'Every player · with kindness' : 'Every player · next week'}
+        </h3>
         {playerPredictions.length === 0 ? (
           <p className="text-center text-sm text-slate-500">No players yet</p>
         ) : (
@@ -190,6 +230,7 @@ export default function PredictionBoard({
                 key={player.userId}
                 player={player}
                 isCurrentUser={player.userId === currentUserId}
+                empathyMode={empathyMode}
               />
             ))}
           </ul>
@@ -197,9 +238,11 @@ export default function PredictionBoard({
       </div>
 
       <p className="text-xs text-slate-500">
-        {predictions.hasHistory
-          ? `Model uses ${predictions.historyWeekCount} past week(s), weekly results, trend, and this week's live pace.`
-          : "Model uses this week's pace until more weekly history is available."}
+        {empathyMode
+          ? 'These outlooks are gentle guidance only — please rest whenever your body needs it.'
+          : predictions.hasHistory
+            ? `Model uses ${predictions.historyWeekCount} past week(s), weekly results, trend, and this week's live pace.`
+            : "Model uses this week's pace until more weekly history is available."}
       </p>
     </section>
   )
