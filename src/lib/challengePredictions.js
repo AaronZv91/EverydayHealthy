@@ -1,5 +1,6 @@
 import {
   buildChallengeLeaderboard,
+  buildMvpaParasiteStatus,
   findFirstDualGoalAchieverUserId,
   findTopReceiverUserId,
   sortChallengeLeaderboard,
@@ -534,7 +535,8 @@ function buildPlayerPrediction(candidate, ctx) {
     mvpaGoal,
     hasHistory,
     rank,
-    flags: { isLeader, isFirstPick, isLastPick, isBeggarPick },
+    flags: { isLeader, isFirstPick, isLastPick, isBeggarPick, isMvpaParasite },
+    parasiteByUser,
   } = ctx
 
   const {
@@ -592,6 +594,7 @@ function buildPlayerPrediction(candidate, ctx) {
   if (isFirstPick) labels.push({ emoji: '🪖', label: 'First pick' })
   if (isLastPick) labels.push({ emoji: '🐌', label: 'Last pick' })
   if (isBeggarPick) labels.push({ emoji: '♿', label: 'Beggar pick' })
+  if (isMvpaParasite) labels.push({ emoji: '🪱', label: 'MVPA Parasite' })
   if (pct >= 100) labels.push({ emoji: '✅', label: 'Goals met' })
 
   let outlook
@@ -674,6 +677,8 @@ function buildPlayerPrediction(candidate, ctx) {
     recentNotes: noteMetrics.recentNotes,
     rewardLine: rewardMetrics.rewardLine,
     recentRewards: rewardMetrics.recentRewards,
+    mvpaParasiteLine: parasiteByUser.get(userId)?.gapLine ?? '',
+    isMvpaParasite: Boolean(parasiteByUser.get(userId)?.isParasite),
     scores: {
       firstCompleter: firstCompleterLikelihood,
       lastPlace: lastPlaceLikelihood,
@@ -894,6 +899,8 @@ export function buildChallengePredictions({
 
   const leader = resolveLeader(currentStats)
   const rankByUser = buildRankByUser(currentStats, candidates, profiles.length, weekIsEmpty)
+  const mvpaParasite = buildMvpaParasiteStatus({ activities, profiles, weekStart })
+  const parasiteByUser = new Map(mvpaParasite.players.map((player) => [player.userId, player]))
 
   const playerPredictions = candidates
     .map((candidate) =>
@@ -902,11 +909,13 @@ export function buildChallengePredictions({
         mvpaGoal,
         hasHistory,
         rank: rankByUser.get(candidate.userId) ?? profiles.length,
+        parasiteByUser,
         flags: {
           isLeader: leader?.user_id === candidate.userId,
           isFirstPick: firstCompleter?.userId === candidate.userId,
           isLastPick: lastPlace?.userId === candidate.userId,
           isBeggarPick: beggar?.userId === candidate.userId,
+          isMvpaParasite: mvpaParasite.userId === candidate.userId,
         },
       })
     )
@@ -934,6 +943,7 @@ export function buildChallengePredictions({
     historyWeekCount: historyWeeks.length,
     historicalWeekSummaries,
     playerEventLogs,
+    mvpaParasite,
     weekContext: {
       stepGoal,
       mvpaGoal,

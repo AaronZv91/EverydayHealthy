@@ -102,7 +102,7 @@ function ChallengeRow({
             {isMvpaParasite && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lime-500/40 bg-lime-500/15 px-2 py-0.5 text-xs font-semibold text-lime-300"
-                title="Longest stretch this week without self-logging any MVPA minutes"
+                title="Longest time since last self-logged MVPA vs now"
               >
                 🪱 MVPA Parasite
               </span>
@@ -163,18 +163,6 @@ function ChallengeRow({
       <div className="relative z-10">{rowBody}</div>
     </>
   )
-
-  if (isMvpaParasite) {
-    return (
-      <li className="parasite-border-wrap">
-        <div
-          className={`parasite-border-inner ${isTopReceiver ? 'beggar-cat-inner' : ''} ${isWeeklySoldier ? 'soldier-cat-inner' : ''}`}
-        >
-          {rowContent}
-        </div>
-      </li>
-    )
-  }
 
   if (isTopReceiver) {
     return (

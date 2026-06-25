@@ -144,6 +144,25 @@ export function getSgtDateKey(iso) {
   return new Date(iso).toLocaleDateString('en-CA', { timeZone: WEEK_TIMEZONE })
 }
 
+export function formatDurationMs(ms) {
+  const totalMinutes = Math.max(0, Math.floor((ms ?? 0) / 60000))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+export function formatMvpaParasiteGap(lastMvpaAt, gapMs) {
+  const dryFor = formatDurationMs(gapMs)
+  if (!lastMvpaAt) {
+    return `No MVPA logged this week · dry for ${dryFor} since week start`
+  }
+  return `Last MVPA ${formatLogTimestamp(lastMvpaAt)} · dry for ${dryFor} since then`
+}
+
 export function formatWeekRange(date = new Date()) {
   const start = getWeekStart(date)
   const end = addDaysInWeekTimezone(start, 6)

@@ -1,4 +1,4 @@
-import { getSgtDateKey, getWeekDayBuckets } from './weekUtils'
+import { formatMvpaParasiteGap, getSgtDateKey, getWeekDayBuckets } from './weekUtils'
 
 function sumBy(items, key) {
   return items.reduce((acc, item) => acc + (Number(item[key]) || 0), 0)
@@ -310,52 +310,61 @@ function getWeekStartMs(weekStart) {
   return new Date(`${ymd}T00:00:00+08:00`).getTime()
 }
 
-/** Player with the longest gap without self-logging MVPA minutes this week. */
-export function findMvpaParasiteUserId({ activities, profiles, weekStart }) {
+/** MVPA Parasite = longest dry spell since latest self-logged MVPA (or week start if none). */
+export function buildMvpaParasiteStatus({ activities, profiles, weekStart }) {
   const weekKey = normalizeWeekStart(weekStart)
-  if (!weekKey || !profiles.length) return null
+  if (!weekKey || !profiles.length) {
+    return { userId: null, displayName: null, players: [] }
+  }
 
   const weekStartMs = getWeekStartMs(weekStart)
   const nowMs = Date.now()
   const scopedActivities = filterByWeek(activities, weekKey)
 
+  const players = profiles.map((profile) => {
+    const mvpaLogs = scopedActivities
+      .filter((row) => row.user_id === profile.id && (Number(row.mvpa_minutes) || 0) > 0)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const lastMvpaAt = mvpaLogs[0]?.created_at ?? null
+    const gapMs = lastMvpaAt ? nowMs - new Date(lastMvpaAt).getTime() : nowMs - weekStartMs
+
+    return {
+      userId: profile.id,
+      displayName: profile.display_name,
+      lastMvpaAt,
+      gapMs,
+    }
+  })
+
   let parasiteUserId = null
   let longestGapMs = -1
   let tieBreakName = ''
 
-  for (const profile of profiles) {
-    const mvpaLogs = scopedActivities
-      .filter((row) => row.user_id === profile.id && (Number(row.mvpa_minutes) || 0) > 0)
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-
-    let maxGapMs = 0
-    if (mvpaLogs.length === 0) {
-      maxGapMs = nowMs - weekStartMs
-    } else {
-      const firstMs = new Date(mvpaLogs[0].created_at).getTime()
-      maxGapMs = Math.max(maxGapMs, firstMs - weekStartMs)
-
-      for (let index = 1; index < mvpaLogs.length; index += 1) {
-        const prevMs = new Date(mvpaLogs[index - 1].created_at).getTime()
-        const currMs = new Date(mvpaLogs[index].created_at).getTime()
-        maxGapMs = Math.max(maxGapMs, currMs - prevMs)
-      }
-
-      const lastMs = new Date(mvpaLogs[mvpaLogs.length - 1].created_at).getTime()
-      maxGapMs = Math.max(maxGapMs, nowMs - lastMs)
-    }
-
+  for (const player of players) {
     if (
-      maxGapMs > longestGapMs ||
-      (maxGapMs === longestGapMs && profile.display_name.localeCompare(tieBreakName) < 0)
+      player.gapMs > longestGapMs ||
+      (player.gapMs === longestGapMs && player.displayName.localeCompare(tieBreakName) < 0)
     ) {
-      longestGapMs = maxGapMs
-      parasiteUserId = profile.id
-      tieBreakName = profile.display_name
+      longestGapMs = player.gapMs
+      parasiteUserId = player.userId
+      tieBreakName = player.displayName
     }
   }
 
-  return parasiteUserId
+  return {
+    userId: parasiteUserId,
+    displayName: players.find((player) => player.userId === parasiteUserId)?.displayName ?? null,
+    players: players.map((player) => ({
+      ...player,
+      isParasite: player.userId === parasiteUserId,
+      gapLine: formatMvpaParasiteGap(player.lastMvpaAt, player.gapMs),
+    })),
+  }
+}
+
+export function findMvpaParasiteUserId({ activities, profiles, weekStart }) {
+  return buildMvpaParasiteStatus({ activities, profiles, weekStart }).userId
 }
 
 export async function fetchChallengeSourceData(client) {

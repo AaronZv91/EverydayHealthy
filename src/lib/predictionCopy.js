@@ -5,6 +5,7 @@ const AI_COPY_DEBOUNCE_MS = 1000
 function fingerprintPayload(predictions) {
   return {
     weekContext: predictions.weekContext ?? null,
+    mvpaParasite: predictions.mvpaParasite ?? null,
     hasHistory: predictions.hasHistory,
     historyWeekCount: predictions.historyWeekCount,
     historicalWeekSummaries: predictions.historicalWeekSummaries ?? [],
@@ -37,6 +38,8 @@ function fingerprintPayload(predictions) {
       recentNotes: player.recentNotes ?? [],
       rewardLine: player.rewardLine ?? '',
       recentRewards: player.recentRewards ?? [],
+      mvpaParasiteLine: player.mvpaParasiteLine ?? '',
+      isMvpaParasite: player.isMvpaParasite ?? false,
       scores: player.scores,
       logs:
         predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],
@@ -53,6 +56,13 @@ export async function fingerprintPredictions(predictions) {
 export function buildGeminiPayload(predictions) {
   return {
     weekContext: predictions.weekContext ?? null,
+    mvpaParasite: predictions.mvpaParasite
+      ? {
+          name: predictions.mvpaParasite.displayName,
+          gapLine:
+            predictions.mvpaParasite.players.find((player) => player.isParasite)?.gapLine ?? '',
+        }
+      : null,
     summaryContext: {
       hasHistory: predictions.hasHistory,
       historyWeekCount: predictions.historyWeekCount,
@@ -99,6 +109,8 @@ export function buildGeminiPayload(predictions) {
       recentNotes: player.recentNotes ?? [],
       rewardLine: player.rewardLine ?? '',
       recentRewards: player.recentRewards ?? [],
+      mvpaParasiteLine: player.mvpaParasiteLine ?? '',
+      isMvpaParasite: player.isMvpaParasite ?? false,
       scores: player.scores,
       logs:
         predictions.playerEventLogs?.find((entry) => entry.userId === player.userId)?.events ?? [],

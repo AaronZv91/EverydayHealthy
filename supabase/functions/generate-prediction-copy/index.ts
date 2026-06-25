@@ -53,6 +53,8 @@ type PlayerPayload = {
   recentNotes: string[]
   rewardLine: string
   recentRewards: PlayerReward[]
+  mvpaParasiteLine: string
+  isMvpaParasite: boolean
   logs: PlayerEvent[]
   scores: {
     firstCompleter: number
@@ -99,8 +101,14 @@ type HistoricalWeekSummary = {
   activePlayers: number
 }
 
+type MvpaParasitePayload = {
+  name: string
+  gapLine: string
+} | null
+
 type RequestBody = {
   weekContext: WeekContext | null
+  mvpaParasite: MvpaParasitePayload
   summaryContext: {
     hasHistory: boolean
     historyWeekCount: number
@@ -161,7 +169,7 @@ function formatEventForPrompt(event: PlayerEvent) {
 }
 
 function buildPrompt(body: RequestBody) {
-  const { weekContext, summaryContext, picks, players } = body
+  const { weekContext, mvpaParasite, summaryContext, picks, players } = body
   const historyBlock =
     summaryContext.historicalWeekSummaries.length > 0
       ? summaryContext.historicalWeekSummaries
@@ -204,8 +212,12 @@ ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, a
 - Per player: individual % vs their own 70k/200 (see paceLine)
 Quote or mock activity log notes when present — excuses, gym brags, lazy confessions.
 Mock reward item names and emojis hard — roast pathetic handout titles ("Pity Steps", "Charity MVPA"), shame serial receivers, and clown generous senders. Use recentRewards and event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
+Roast MVPA Parasite status hard — mock whoever has gone longest since their last self-logged MVPA vs now (see mvpaParasiteLine / isMvpaParasite). Leeching steps while the MVPA meter collects dust is peak parasite energy.
 
 ${weekBlock}
+
+Weekly MVPA Parasite (longest dry spell since last self-logged MVPA vs now):
+${mvpaParasite ? `- ${mvpaParasite.name}: ${mvpaParasite.gapLine}` : '- none'}
 
 Context:
 - ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
@@ -230,6 +242,7 @@ ${players
         ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
         : '    · no named rewards yet'
     return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
+  MVPA parasite: ${p.isMvpaParasite ? `YES — ${p.mvpaParasiteLine}` : p.mvpaParasiteLine || 'not the parasite'}
   Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
   Reward names (mock these): ${p.rewardLine || 'none'}
   Recent rewards:
