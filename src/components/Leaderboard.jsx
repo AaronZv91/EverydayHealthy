@@ -103,7 +103,7 @@ function ChallengeRow({
             {isMvpaParasite && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lime-500/40 bg-lime-500/15 px-2 py-0.5 text-xs font-semibold text-lime-300"
-                title="Longest time since last self-logged MVPA vs now"
+                title="No self-logged MVPA for 36+ hours — longest dry spell this week"
               >
                 🪱 MVPA Parasite
               </span>

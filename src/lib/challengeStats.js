@@ -1,5 +1,8 @@
 import { formatMvpaParasiteGap, getSgtDateKey, getWeekDayBuckets } from './weekUtils'
 
+/** Minimum dry spell since last self-logged MVPA to qualify for MVPA Parasite. */
+export const MVPA_PARASITE_MIN_GAP_MS = 36 * 60 * 60 * 1000
+
 function sumBy(items, key) {
   return items.reduce((acc, item) => acc + (Number(item[key]) || 0), 0)
 }
@@ -310,11 +313,11 @@ function getWeekStartMs(weekStart) {
   return new Date(`${ymd}T00:00:00+08:00`).getTime()
 }
 
-/** MVPA Parasite = longest dry spell since latest self-logged MVPA (or week start if none). */
+/** MVPA Parasite = longest dry spell since latest self-logged MVPA, if at least 36 hours. */
 export function buildMvpaParasiteStatus({ activities, profiles, weekStart }) {
   const weekKey = normalizeWeekStart(weekStart)
   if (!weekKey || !profiles.length) {
-    return { userId: null, displayName: null, players: [] }
+    return { userId: null, displayName: null, minGapHours: 36, players: [] }
   }
 
   const weekStartMs = getWeekStartMs(weekStart)
@@ -328,12 +331,14 @@ export function buildMvpaParasiteStatus({ activities, profiles, weekStart }) {
 
     const lastMvpaAt = mvpaLogs[0]?.created_at ?? null
     const gapMs = lastMvpaAt ? nowMs - new Date(lastMvpaAt).getTime() : nowMs - weekStartMs
+    const qualifies = gapMs >= MVPA_PARASITE_MIN_GAP_MS
 
     return {
       userId: profile.id,
       displayName: profile.display_name,
       lastMvpaAt,
       gapMs,
+      qualifies,
     }
   })
 
@@ -342,6 +347,8 @@ export function buildMvpaParasiteStatus({ activities, profiles, weekStart }) {
   let tieBreakName = ''
 
   for (const player of players) {
+    if (!player.qualifies) continue
+
     if (
       player.gapMs > longestGapMs ||
       (player.gapMs === longestGapMs && player.displayName.localeCompare(tieBreakName) < 0)
@@ -355,8 +362,13 @@ export function buildMvpaParasiteStatus({ activities, profiles, weekStart }) {
   return {
     userId: parasiteUserId,
     displayName: players.find((player) => player.userId === parasiteUserId)?.displayName ?? null,
+    minGapHours: 36,
     players: players.map((player) => ({
-      ...player,
+      userId: player.userId,
+      displayName: player.displayName,
+      lastMvpaAt: player.lastMvpaAt,
+      gapMs: player.gapMs,
+      qualifies: player.qualifies,
       isParasite: player.userId === parasiteUserId,
       gapLine: formatMvpaParasiteGap(player.lastMvpaAt, player.gapMs),
     })),

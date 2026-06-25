@@ -59,6 +59,7 @@ export function buildGeminiPayload(predictions) {
     mvpaParasite: predictions.mvpaParasite
       ? {
           name: predictions.mvpaParasite.displayName,
+          minGapHours: predictions.mvpaParasite.minGapHours ?? 36,
           gapLine:
             predictions.mvpaParasite.players.find((player) => player.isParasite)?.gapLine ?? '',
         }

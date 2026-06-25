@@ -102,7 +102,8 @@ type HistoricalWeekSummary = {
 }
 
 type MvpaParasitePayload = {
-  name: string
+  name: string | null
+  minGapHours: number
   gapLine: string
 } | null
 
@@ -212,12 +213,12 @@ ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, a
 - Per player: individual % vs their own 70k/200 (see paceLine)
 Quote or mock activity log notes when present — excuses, gym brags, lazy confessions.
 Mock reward item names and emojis hard — roast pathetic handout titles ("Pity Steps", "Charity MVPA"), shame serial receivers, and clown generous senders. Use recentRewards and event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
-Roast MVPA Parasite status hard — mock whoever has gone longest since their last self-logged MVPA vs now (see mvpaParasiteLine / isMvpaParasite). Leeching steps while the MVPA meter collects dust is peak parasite energy.
+Roast MVPA Parasite status hard — mock whoever has gone longest since their last self-logged MVPA vs now (see mvpaParasiteLine / isMvpaParasite). Must be 36+ hours dry to earn the title. Leeching steps while the MVPA meter collects dust is peak parasite energy.
 
 ${weekBlock}
 
-Weekly MVPA Parasite (longest dry spell since last self-logged MVPA vs now):
-${mvpaParasite ? `- ${mvpaParasite.name}: ${mvpaParasite.gapLine}` : '- none'}
+Weekly MVPA Parasite (36+ hours since last self-logged MVPA; longest dry spell wins):
+${mvpaParasite?.name ? `- ${mvpaParasite.name}: ${mvpaParasite.gapLine}` : '- none (no one dry 36+ hours yet)'}
 
 Context:
 - ${summaryContext.hasHistory ? `${summaryContext.historyWeekCount} past week(s) in the model` : 'Limited history — mostly this week'}
