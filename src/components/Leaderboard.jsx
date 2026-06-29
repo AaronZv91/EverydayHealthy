@@ -5,6 +5,27 @@ import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 import parasiteBgUrl from '../assets/mvpa-parasite.png'
 
+function EngagementBadges({ badges, empathyMode = false }) {
+  if (!badges?.length) return null
+
+  return (
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      {badges.map((badge) => (
+        <span
+          key={badge.label}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+            empathyMode
+              ? 'border-sky-200/70 bg-sky-50/80 text-sky-700'
+              : 'border-slate-600/80 bg-slate-900/60 text-slate-300'
+          }`}
+        >
+          {badge.emoji} {badge.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function StackedHorizontalBar({ label, self, received, sent, scaleMax, goal }) {
   const total = self + received
   const barWidthPct = scaleMax > 0 ? Math.min(100, (total / scaleMax) * 100) : 0
@@ -66,6 +87,7 @@ function ChallengeRow({
   isMvpaParasite,
   showGoalPies,
   empathyMode = false,
+  engagementBadges = [],
 }) {
   const showFlair = !empathyMode
   const rowBody = (
@@ -117,6 +139,10 @@ function ChallengeRow({
           </p>
         </div>
       </div>
+
+      {engagementBadges.length > 0 && (
+        <EngagementBadges badges={engagementBadges} empathyMode={empathyMode} />
+      )}
 
       {showGoalPies && (
         <div className="mb-3 flex gap-2 sm:gap-4">
@@ -240,6 +266,7 @@ function ChallengeList({
   weeklyBeggarUserId,
   weeklyMvpaParasiteUserId,
   empathyMode = false,
+  engagementByUserId = {},
 }) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
@@ -273,6 +300,9 @@ function ChallengeList({
           isMvpaParasite={mode === 'weekly' && user.user_id === weeklyMvpaParasiteUserId}
           showGoalPies={mode === 'weekly'}
           empathyMode={empathyMode}
+          engagementBadges={
+            mode === 'weekly' ? (engagementByUserId[user.user_id] ?? []) : []
+          }
         />
       ))}
     </ol>
@@ -288,6 +318,7 @@ export default function Leaderboard({
   loading,
   currentUserId,
   empathyMode = false,
+  engagementByUserId = {},
 }) {
   const [mode, setMode] = useState('weekly')
   const users = mode === 'weekly' ? weeklyStats : allTimeStats
@@ -387,6 +418,7 @@ export default function Leaderboard({
           weeklyBeggarUserId={weeklyBeggarUserId}
           weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
           empathyMode={empathyMode}
+          engagementByUserId={engagementByUserId}
         />
       </div>
 

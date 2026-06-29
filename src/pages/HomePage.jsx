@@ -4,6 +4,7 @@ import Leaderboard from '../components/Leaderboard'
 import PredictionBoard from '../components/PredictionBoard'
 import RewardForm from '../components/RewardForm'
 import Ticker from '../components/Ticker'
+import { useMemo } from 'react'
 import { useEmpathyMode } from '../hooks/useEmpathyMode'
 import { useProfiles, useWeeklyStats } from '../hooks/useWeeklyStats'
 import { useChallengeLeaderboard } from '../hooks/useChallengeLeaderboard'
@@ -28,6 +29,17 @@ export default function HomePage({ user, onSignOut }) {
     refetch: refetchLeaderboard,
   } = useChallengeLeaderboard(empathyMode)
   const { logActivity } = useLogActivity()
+
+  const engagementByUserId = useMemo(
+    () =>
+      Object.fromEntries(
+        (predictions?.playerPredictions ?? []).map((player) => [
+          player.userId,
+          player.engagementBadges ?? [],
+        ])
+      ),
+    [predictions]
+  )
 
   async function handleRefresh() {
     await Promise.all([refetchStats(), refetchProfiles(), refetchLeaderboard()])
@@ -91,6 +103,7 @@ export default function HomePage({ user, onSignOut }) {
           loading={leaderboardLoading}
           currentUserId={userId}
           empathyMode={empathyMode}
+          engagementByUserId={engagementByUserId}
         />
 
         <PredictionBoard

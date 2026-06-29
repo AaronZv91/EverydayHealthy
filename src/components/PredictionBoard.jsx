@@ -78,24 +78,7 @@ function PlayerPredictionRow({ player, isCurrentUser, empathyMode = false }) {
           ))}
       </div>
 
-      {player.engagementBadges?.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {player.engagementBadges.map((badge) => (
-            <span
-              key={badge.label}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                empathyMode
-                  ? 'border-sky-200/70 bg-sky-50/80 text-sky-700'
-                  : 'border-slate-700 bg-slate-900/60 text-slate-300'
-              }`}
-            >
-              {badge.emoji} {badge.label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <p className="mb-3 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
+      <p className="mb-2 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
 
       <div className="space-y-2.5">
         <div>
