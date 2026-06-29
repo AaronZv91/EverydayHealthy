@@ -49,6 +49,8 @@ type PlayerPayload = {
   labels: string[]
   trend: string
   historyLine: string
+  lastWeekLine: string
+  engagementLine: string
   paceLine: string
   recentNotes: string[]
   rewardLine: string
@@ -126,6 +128,7 @@ type RequestBody = {
 
 type PlayerOutlook = {
   userId: string
+  recap: string
   outlook: string
 }
 
@@ -170,6 +173,26 @@ function formatEventForPrompt(event: PlayerEvent) {
   return `[${event.at}] received from ${event.from} ${event.item}: ${event.steps} steps, ${event.mvpa} MVPA (week ${event.week})`
 }
 
+function formatPlayerBlockForPrompt(p: PlayerPayload) {
+  const logLines =
+    p.logs.length > 0
+      ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
+      : '    · no logs yet'
+  const rewardLines =
+    p.recentRewards.length > 0
+      ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
+      : '    · no named rewards yet'
+
+  return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | last week: ${p.lastWeekLine || 'none'} | streaks/PBs: ${p.engagementLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
+  MVPA parasite: ${p.isMvpaParasite ? `YES — ${p.mvpaParasiteLine}` : p.mvpaParasiteLine || 'not the parasite'}
+  Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
+  Reward names: ${p.rewardLine || 'none'}
+  Recent rewards:
+${rewardLines}
+  Event log (chronological, SGT):
+${logLines}`
+}
+
 function buildEmpathyPrompt(body: RequestBody) {
   const { weekContext, summaryContext, picks, players } = body
   const historyBlock =
@@ -206,12 +229,16 @@ Hard rules (never break these):
 - NEVER use labels like beggar, parasite, or last place in a harsh way — reframe with compassion
 - NO pressure — encourage without demanding more
 - Acknowledge struggle with kindness; celebrate community support as love, not weakness
-- One or two sentences max per field — warm, not essays
+- One or two sentences max per recap/outlook field — warm, not essays
+- recap = last completed week only; outlook = next week only — keep them separate
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
 Anchor commentary to weekly goals, the current weekday, days remaining, and pace with compassion.
+For each player recap, use lastWeekLine and history — celebrate effort, validate rest.
+For each player outlook, use this week's pace and trends — gentle encouragement only.
 Honor activity notes with empathy — validate feelings, gym wins, and honest confessions.
 Treat rewards as acts of friendship and community care.
+Reference streaks/PBs warmly when present in engagementLine.
 If someone has been inactive or low on MVPA, gently suggest rest and self-compassion — never mock.
 
 ${weekBlock}
@@ -227,26 +254,8 @@ Top picks (confidence = model likelihood % — describe gently, not competitivel
 - May need the most encouragement: ${picks.lastPlace ? `${picks.lastPlace.name} (${picks.lastPlace.confidence}%)` : 'none'}
 - Receiving the most community support: ${picks.beggar ? `${picks.beggar.name} (${picks.beggar.confidence}%)` : 'none'}
 
-Every player:
-${players
-  .map((p) => {
-    const logLines =
-      p.logs.length > 0
-        ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
-        : '    · no logs yet'
-    const rewardLines =
-      p.recentRewards.length > 0
-        ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
-        : '    · no named rewards yet'
-    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine}
-  Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
-  Community support: ${p.rewardLine || 'none'}
-  Recent rewards:
-${rewardLines}
-  Event log (chronological, SGT):
-${logLines}`
-  })
-  .join('\n\n')}
+Every player (write recap + outlook for each):
+${players.map((p) => formatPlayerBlockForPrompt(p)).join('\n\n')}
 
 Return JSON only:
 {
@@ -255,7 +264,7 @@ Return JSON only:
   "lastPlaceReason": "1-2 compassionate sentences for whoever may need extra care — suggest rest without shame",
   "beggarReason": "1-2 kind sentences celebrating community support and friendship",
   "players": [
-    { "userId": "<exact userId>", "outlook": "1-2 sentence warm, encouraging outlook — suggest rest if appropriate" }
+    { "userId": "<exact userId>", "recap": "1-2 sentences recapping their LAST completed week (use lastWeekLine)", "outlook": "1-2 sentences of warm next-week outlook" }
   ]
 }
 
@@ -302,13 +311,17 @@ Hard rules (never break these):
 - NO cruelty, slurs, bullying, or humiliation — keep it playful trash talk among friends
 - Roast BEHAVIOUR and NUMBERS only (lazy logging, begging for steps, snail pace, goal-dodging, suspicious timestamps)
 - Everyone should still feel like they're in on the joke
-- One or two sentences max per field — punchy, not essays
+- One or two sentences max per recap/outlook field — punchy, not essays
+- recap = last completed week only; outlook = next week only — keep them separate
 
 The stats below are authoritative. Do NOT invent numbers or change who was picked.
+For each player recap, roast or hype their LAST completed week using lastWeekLine, history, notes, and rewards from that week context.
+For each player outlook, trash-talk or hype NEXT week using this week's pace, trend, and scores.
 ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, and pace:
 - Group summary: combined % vs total group target (all players × 70k steps + 200 MVPA each)
 - Per player: individual % vs their own 70k/200 (see paceLine)
 Quote or mock activity log notes when present — excuses, gym brags, lazy confessions.
+Reference streaks/PBs from engagementLine when roasting or hyping.
 Mock reward item names and emojis hard — roast pathetic handout titles ("Pity Steps", "Charity MVPA"), shame serial receivers, and clown generous senders. Use recentRewards and event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
 Roast MVPA Parasite status hard — mock whoever has gone longest since their last self-logged MVPA vs now (see mvpaParasiteLine / isMvpaParasite). Must be 36+ hours dry to earn the title. Leeching steps while the MVPA meter collects dust is peak parasite energy.
 
@@ -328,27 +341,8 @@ Top picks (confidence = model likelihood %):
 - Likely last place: ${picks.lastPlace ? `${picks.lastPlace.name} (${picks.lastPlace.confidence}%)` : 'none'}
 - Likely Beggar (most donated quota received): ${picks.beggar ? `${picks.beggar.name} (${picks.beggar.confidence}%)` : 'none'}
 
-Every player:
-${players
-  .map((p) => {
-    const logLines =
-      p.logs.length > 0
-        ? p.logs.map((event) => `    · ${formatEventForPrompt(event)}`).join('\n')
-        : '    · no logs yet'
-    const rewardLines =
-      p.recentRewards.length > 0
-        ? p.recentRewards.map((reward) => `    · ${formatRewardForPrompt(reward)}`).join('\n')
-        : '    · no named rewards yet'
-    return `- userId: ${p.userId} | ${p.name} | rank #${p.rank} | trend: ${p.trend} | history: ${p.historyLine || 'none'} | pace: ${p.paceLine || 'n/a'} | ${p.statsLine} | labels: ${p.labels.join(', ') || 'none'} | first ${p.scores.firstCompleter}% / last ${p.scores.lastPlace}% / beggar ${p.scores.beggar}%
-  MVPA parasite: ${p.isMvpaParasite ? `YES — ${p.mvpaParasiteLine}` : p.mvpaParasiteLine || 'not the parasite'}
-  Activity notes this week: ${p.recentNotes.length ? p.recentNotes.map((note) => `"${note}"`).join('; ') : 'none'}
-  Reward names (mock these): ${p.rewardLine || 'none'}
-  Recent rewards:
-${rewardLines}
-  Event log (chronological, SGT):
-${logLines}`
-  })
-  .join('\n\n')}
+Every player (write recap + outlook for each):
+${players.map((p) => formatPlayerBlockForPrompt(p)).join('\n\n')}
 
 Return JSON only:
 {
@@ -357,7 +351,7 @@ Return JSON only:
   "lastPlaceReason": "1-2 trashy sentences roasting the last-place pick",
   "beggarReason": "1-2 trashy sentences mocking the beggar pick",
   "players": [
-    { "userId": "<exact userId>", "outlook": "1-2 sentence sarcastic outlook" }
+    { "userId": "<exact userId>", "recap": "1-2 sarcastic sentences recapping their LAST completed week (use lastWeekLine)", "outlook": "1-2 sarcastic sentences for next week" }
   ]
 }
 
@@ -365,8 +359,14 @@ Include every player in the players array with their exact userId.`
 }
 
 function normalizeCopyResponse(raw: CopyResponse, players: PlayerPayload[]): CopyResponse {
-  const outlookByUser = new Map(
-    (raw.players ?? []).map((row) => [row.userId, row.outlook?.trim() ?? ''])
+  const playerByUser = new Map(
+    (raw.players ?? []).map((row) => [
+      row.userId,
+      {
+        recap: row.recap?.trim() ?? '',
+        outlook: row.outlook?.trim() ?? '',
+      },
+    ])
   )
 
   return {
@@ -374,10 +374,14 @@ function normalizeCopyResponse(raw: CopyResponse, players: PlayerPayload[]): Cop
     firstCompleterReason: raw.firstCompleterReason?.trim() ?? '',
     lastPlaceReason: raw.lastPlaceReason?.trim() ?? '',
     beggarReason: raw.beggarReason?.trim() ?? '',
-    players: players.map((player) => ({
-      userId: player.userId,
-      outlook: outlookByUser.get(player.userId) ?? '',
-    })),
+    players: players.map((player) => {
+      const copy = playerByUser.get(player.userId)
+      return {
+        userId: player.userId,
+        recap: copy?.recap ?? '',
+        outlook: copy?.outlook ?? '',
+      }
+    }),
   }
 }
 

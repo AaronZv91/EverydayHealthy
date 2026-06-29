@@ -77,10 +77,51 @@ function PlayerPredictionRow({ player, isCurrentUser, empathyMode = false }) {
             </span>
           ))}
       </div>
-      <p className="mb-2 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
-      <p className="mb-2 text-sm leading-relaxed text-slate-300">{player.outlook}</p>
+
+      {player.engagementBadges?.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {player.engagementBadges.map((badge) => (
+            <span
+              key={badge.label}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                empathyMode
+                  ? 'border-sky-200/70 bg-sky-50/80 text-sky-700'
+                  : 'border-slate-700 bg-slate-900/60 text-slate-300'
+              }`}
+            >
+              {badge.emoji} {badge.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <p className="mb-3 font-mono text-[11px] leading-relaxed text-slate-500">{player.statsLine}</p>
+
+      <div className="space-y-2.5">
+        <div>
+          <p
+            className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${
+              empathyMode ? 'text-violet-500' : 'text-slate-500'
+            }`}
+          >
+            Last week recap
+          </p>
+          <p className="text-sm leading-relaxed text-slate-400">{player.recap}</p>
+        </div>
+        <div>
+          <p
+            className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${
+              empathyMode ? 'text-sky-600' : 'text-brand-400/90'
+            }`}
+          >
+            Next week outlook
+          </p>
+          <p className="text-sm leading-relaxed text-slate-300">{player.outlook}</p>
+        </div>
+      </div>
+
       {!empathyMode && (
-        <div className="flex flex-wrap gap-2 text-[10px] text-slate-500">
+        <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-slate-500">
           <span>First {player.scores.firstCompleter}%</span>
           <span>·</span>
           <span>Last {player.scores.lastPlace}%</span>
@@ -99,7 +140,7 @@ export default function PredictionBoard({
   currentUserId,
   empathyMode = false,
 }) {
-  const title = empathyMode ? 'Gentle Outlook · Next Week' : 'AI Predictions · Next Week'
+  const title = empathyMode ? 'Gentle Outlook · Recap & Next Week' : 'AI Predictions · Recap & Next Week'
 
   if (loading) {
     return (
@@ -166,8 +207,8 @@ export default function PredictionBoard({
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <p className="mt-0.5 text-sm text-slate-400">
             {empathyMode
-              ? 'Warm, supportive copy · you deserve rest'
-              : 'Stats-driven picks · copy by Gemini'}
+              ? 'Warm recap of last week · gentle outlook ahead'
+              : 'Last week recap · next week picks · copy by Gemini'}
           </p>
         </div>
         {predictions.aiGenerated ? (
@@ -219,7 +260,7 @@ export default function PredictionBoard({
 
       <div>
         <h3 className="mb-3 text-sm font-semibold text-slate-300">
-          {empathyMode ? 'Every player · with kindness' : 'Every player · next week'}
+          {empathyMode ? 'Every player · recap & next week' : 'Every player · recap & next week'}
         </h3>
         {playerPredictions.length === 0 ? (
           <p className="text-center text-sm text-slate-500">No players yet</p>
@@ -239,10 +280,10 @@ export default function PredictionBoard({
 
       <p className="text-xs text-slate-500">
         {empathyMode
-          ? 'These outlooks are gentle guidance only — please rest whenever your body needs it.'
+          ? 'Recaps look at last week; outlooks are gentle guidance only — please rest whenever your body needs it.'
           : predictions.hasHistory
-            ? `Model uses ${predictions.historyWeekCount} past week(s), weekly results, trend, and this week's live pace.`
-            : "Model uses this week's pace until more weekly history is available."}
+            ? `Recaps use last week's results; forecasts blend ${predictions.historyWeekCount} past week(s) with this week's live pace.`
+            : "Recaps appear once a week completes; forecasts use this week's pace until more history is available."}
       </p>
     </section>
   )

@@ -35,6 +35,8 @@ function fingerprintPayload(predictions, empathyMode = false) {
       labels: player.labels.map((tag) => tag.label),
       trend: player.trend,
       historyLine: player.historyLine,
+      lastWeekLine: player.lastWeekLine ?? '',
+      engagementLine: player.engagementLine ?? '',
       paceLine: player.paceLine,
       recentNotes: player.recentNotes ?? [],
       rewardLine: player.rewardLine ?? '',
@@ -108,6 +110,8 @@ export function buildGeminiPayload(predictions, empathyMode = false) {
       labels: player.labels.map((tag) => tag.label),
       trend: player.trend,
       historyLine: player.historyLine,
+      lastWeekLine: player.lastWeekLine ?? '',
+      engagementLine: player.engagementLine ?? '',
       paceLine: player.paceLine,
       recentNotes: player.recentNotes ?? [],
       rewardLine: player.rewardLine ?? '',
@@ -147,11 +151,12 @@ export function mergePredictionCopy(predictions, copy) {
         }
       : null,
     playerPredictions: (predictions.playerPredictions ?? []).map((player) => {
-      const outlookFromArray = copy.players?.find((row) => row.userId === player.userId)?.outlook
+      const outlookFromArray = copy.players?.find((row) => row.userId === player.userId)
       const outlookFromMap = copy.playerOutlooks?.[player.userId]
       return {
         ...player,
-        outlook: outlookFromArray ?? outlookFromMap ?? player.outlook,
+        recap: outlookFromArray?.recap || player.recap,
+        outlook: outlookFromArray?.outlook ?? outlookFromMap ?? player.outlook,
       }
     }),
   }

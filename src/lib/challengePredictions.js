@@ -417,6 +417,150 @@ function buildReason(parts) {
   return parts.filter(Boolean).join(' ')
 }
 
+function buildFallbackRecap(lastWeek, empathyMode = false) {
+  if (!lastWeek) {
+    return empathyMode
+      ? 'No last week to recap yet — your journey begins whenever you are ready.'
+      : 'No last week on the board yet — clean slate.'
+  }
+
+  const pct = Math.round(lastWeek.combinedPct * 100)
+  const titles = [
+    lastWeek.wasFirst ? 'first finisher' : null,
+    lastWeek.wasBeggar ? 'top receiver' : null,
+    lastWeek.wasLast ? 'last place' : null,
+  ].filter(Boolean)
+  const titleBit = titles.length ? ` · ${titles.join(', ')}` : ''
+
+  if (empathyMode) {
+    return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} at ${pct}%${lastWeek.completedGoals ? ' — both goals completed, wonderfully done' : ''}.`
+  }
+
+  return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} · ${pct}% of goals${lastWeek.completedGoals ? ' · goals cleared' : ''}${titleBit}.`
+}
+
+function formatLastWeekLine(lastWeek) {
+  if (!lastWeek) return 'no last week'
+  const pct = Math.round(lastWeek.combinedPct * 100)
+  const titles = [
+    lastWeek.wasFirst ? 'first' : null,
+    lastWeek.wasBeggar ? 'beggar' : null,
+    lastWeek.wasLast ? 'last' : null,
+  ].filter(Boolean)
+  return `${lastWeek.week}: rank #${lastWeek.rank} · ${pct}% goals${lastWeek.completedGoals ? ' · completed both' : ''}${titles.length ? ` · ${titles.join('/')}` : ''} · ${formatCount(lastWeek.totalSteps)} steps · ${formatCount(lastWeek.totalMvpa)} MVPA`
+}
+
+function buildPlayerEngagementMetrics({
+  history,
+  currentTotalSteps,
+  currentTotalMvpa,
+  currentCombinedPct,
+  currentRank,
+  stepGoal,
+  mvpaGoal,
+}) {
+  const snapshots = history.weeklySnapshots ?? []
+
+  let completionStreak = 0
+  for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+    if (snapshots[index].completedGoals) completionStreak += 1
+    else break
+  }
+
+  let activeStreak = 0
+  for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+    const snap = snapshots[index]
+    if ((snap.totalSteps ?? 0) > 0 || (snap.totalMvpa ?? 0) > 0) activeStreak += 1
+    else break
+  }
+
+  const historicalBestSteps = snapshots.reduce(
+    (max, week) => Math.max(max, week.totalSteps ?? 0),
+    0
+  )
+  const historicalBestMvpa = snapshots.reduce(
+    (max, week) => Math.max(max, week.totalMvpa ?? 0),
+    0
+  )
+  const historicalBestGoalPct = snapshots.reduce(
+    (max, week) => Math.max(max, week.combinedPct ?? 0),
+    0
+  )
+  const historicalBestRank =
+    snapshots.length > 0
+      ? snapshots.reduce(
+          (best, week) => (best == null ? week.rank : Math.min(best, week.rank)),
+          null
+        )
+      : null
+
+  const badges = []
+  if (completionStreak >= 2) {
+    badges.push({ emoji: '🔥', label: `${completionStreak}-wk goal streak` })
+  } else if (completionStreak === 1) {
+    badges.push({ emoji: '✅', label: 'Goals met last week' })
+  }
+
+  if (activeStreak >= 2) {
+    badges.push({ emoji: '📅', label: `${activeStreak}-wk active streak` })
+  }
+
+  if (
+    currentTotalSteps > historicalBestSteps &&
+    currentTotalSteps > 0 &&
+    snapshots.length > 0
+  ) {
+    badges.push({ emoji: '👟', label: `Steps PB · ${formatCount(currentTotalSteps)}` })
+  } else if (historicalBestSteps > 0) {
+    badges.push({ emoji: '👟', label: `Steps PB · ${formatCount(historicalBestSteps)}` })
+  }
+
+  if (currentTotalMvpa > historicalBestMvpa && currentTotalMvpa > 0 && snapshots.length > 0) {
+    badges.push({ emoji: '💪', label: `MVPA PB · ${formatCount(currentTotalMvpa)} min` })
+  } else if (historicalBestMvpa > 0) {
+    badges.push({ emoji: '💪', label: `MVPA PB · ${formatCount(historicalBestMvpa)} min` })
+  }
+
+  if (
+    currentCombinedPct > historicalBestGoalPct &&
+    currentCombinedPct > 0 &&
+    snapshots.length > 0
+  ) {
+    badges.push({ emoji: '🎯', label: `Goal % PB · ${Math.round(currentCombinedPct * 100)}%` })
+  }
+
+  if (
+    currentRank != null &&
+    historicalBestRank != null &&
+    currentRank <= historicalBestRank &&
+    snapshots.length > 0
+  ) {
+    badges.push({ emoji: '🏆', label: `Best rank #${currentRank}` })
+  }
+
+  if (history.firstCompleterWeeks >= 1) {
+    badges.push({
+      emoji: '🪖',
+      label: `${history.firstCompleterWeeks}× first finisher`,
+    })
+  }
+
+  const seen = new Set()
+  const uniqueBadges = badges.filter((badge) => {
+    if (seen.has(badge.label)) return false
+    seen.add(badge.label)
+    return true
+  })
+
+  return {
+    completionStreak,
+    activeStreak,
+    badges: uniqueBadges.slice(0, 5),
+    engagementLine: uniqueBadges.map((badge) => badge.label).join(' · '),
+    lastWeek: snapshots[snapshots.length - 1] ?? null,
+  }
+}
+
 function formatCount(n) {
   return Math.round(n ?? 0).toLocaleString('en-US')
 }
@@ -714,15 +858,30 @@ function buildPlayerPrediction(candidate, ctx) {
     )
   )
 
+  const engagement = buildPlayerEngagementMetrics({
+    history,
+    currentTotalSteps,
+    currentTotalMvpa,
+    currentCombinedPct,
+    currentRank: rank,
+    stepGoal,
+    mvpaGoal,
+  })
+  const recap = buildFallbackRecap(engagement.lastWeek, empathyMode)
+
   return {
     userId,
     displayName,
     rank,
     statsLine: statParts.join(' · '),
+    recap,
     outlook,
     labels,
     trend: history.trend?.label ?? 'No history',
     historyLine: formatTrendHistory(history.trend),
+    lastWeekLine: formatLastWeekLine(engagement.lastWeek),
+    engagementLine: engagement.engagementLine,
+    engagementBadges: engagement.badges,
     paceLine: pace.paceLine,
     recentNotes: noteMetrics.recentNotes,
     rewardLine: rewardMetrics.rewardLine,
@@ -809,6 +968,8 @@ export function buildChallengePredictions({
         rank,
         combinedPct,
         completedGoals,
+        totalSteps: stats.total_steps ?? 0,
+        totalMvpa: stats.total_mvpa ?? 0,
         wasFirst: stats.user_id === firstCompleterId,
         wasLast: stats.user_id === lastUser?.user_id,
         wasBeggar: stats.user_id === beggarId,
