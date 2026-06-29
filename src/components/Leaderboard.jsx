@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import GoalPieChart, { PIE_COLORS } from './GoalPieChart'
+import GroupContributionCharts from './GroupContributionCharts'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 import parasiteBgUrl from '../assets/mvpa-parasite.png'
@@ -388,6 +389,12 @@ export default function Leaderboard({
           empathyMode={empathyMode}
         />
       </div>
+
+      {mode === 'weekly' && users.length > 0 && (
+        <div className="mt-6 border-t border-slate-800 pt-6">
+          <GroupContributionCharts users={users} />
+        </div>
+      )}
     </section>
   )
 }
