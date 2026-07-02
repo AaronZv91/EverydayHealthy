@@ -61,7 +61,8 @@ export function useChallengeLeaderboard(empathyMode = false) {
       )
 
       const weekly = sortChallengeLeaderboard(
-        buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
+        buildChallengeLeaderboard(profiles, activities, rewards, weekStart),
+        { stepGoal: WEEKLY_GOALS.steps, mvpaGoal: WEEKLY_GOALS.mvpaMinutes }
       )
 
       setWeeklyStats(weekly)

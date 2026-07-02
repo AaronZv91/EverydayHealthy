@@ -180,13 +180,27 @@ export function buildChallengeLeaderboard(profiles, activities, rewards, weekSta
   )
 }
 
-export function sortChallengeLeaderboard(stats) {
-  return [...stats].sort(
-    (a, b) =>
-      b.total_steps - a.total_steps ||
-      b.total_mvpa - a.total_mvpa ||
-      a.display_name.localeCompare(b.display_name)
-  )
+export function combinedGoalPct(stats, stepGoal, mvpaGoal) {
+  const stepsPct = stepGoal > 0 ? (Number(stats.total_steps) || 0) / stepGoal : 0
+  const mvpaPct = mvpaGoal > 0 ? (Number(stats.total_mvpa) || 0) / mvpaGoal : 0
+  return (stepsPct + mvpaPct) / 2
+}
+
+export function sortChallengeLeaderboard(stats, { stepGoal, mvpaGoal } = {}) {
+  const useGoalPct = stepGoal > 0 && mvpaGoal > 0
+
+  return [...stats].sort((a, b) => {
+    if (useGoalPct) {
+      const pctDiff = combinedGoalPct(b, stepGoal, mvpaGoal) - combinedGoalPct(a, stepGoal, mvpaGoal)
+      if (pctDiff !== 0) return pctDiff
+    }
+
+    return (
+      (Number(b.total_steps) || 0) - (Number(a.total_steps) || 0) ||
+      (Number(b.total_mvpa) || 0) - (Number(a.total_mvpa) || 0) ||
+      String(a.display_name).localeCompare(String(b.display_name))
+    )
+  })
 }
 
 function userWeeklyTotals(state) {

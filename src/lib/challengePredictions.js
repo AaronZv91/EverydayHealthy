@@ -1,6 +1,7 @@
 import {
   buildChallengeLeaderboard,
   buildMvpaParasiteStatus,
+  combinedGoalPct,
   findFirstDualGoalAchieverUserId,
   findTopReceiverUserId,
   sortChallengeLeaderboard,
@@ -41,12 +42,6 @@ function getDistinctWeeks(activities, rewards) {
     if (week) weeks.add(week)
   }
   return [...weeks].sort()
-}
-
-function combinedGoalPct(stats, stepGoal, mvpaGoal) {
-  const stepsPct = stepGoal > 0 ? (stats.total_steps ?? 0) / stepGoal : 0
-  const mvpaPct = mvpaGoal > 0 ? (stats.total_mvpa ?? 0) / mvpaGoal : 0
-  return (stepsPct + mvpaPct) / 2
 }
 
 function receivedGoalPct(stats, stepGoal, mvpaGoal) {
@@ -170,7 +165,8 @@ function finalizeMetrics(row, weekCount) {
 function buildHistoricalWeekSummaries(historyWeeks, profiles, activities, rewards, stepGoal, mvpaGoal) {
   return historyWeeks.map((week) => {
     const weekStats = sortChallengeLeaderboard(
-      buildChallengeLeaderboard(profiles, activities, rewards, week)
+      buildChallengeLeaderboard(profiles, activities, rewards, week),
+      { stepGoal, mvpaGoal }
     )
     const firstCompleterId = findFirstDualGoalAchieverUserId({
       activities,
@@ -914,7 +910,8 @@ export function buildChallengePredictions({
 
   for (const week of historyWeeks) {
     const weekStats = sortChallengeLeaderboard(
-      buildChallengeLeaderboard(profiles, activities, rewards, week)
+      buildChallengeLeaderboard(profiles, activities, rewards, week),
+      { stepGoal, mvpaGoal }
     )
     const firstCompleterId = findFirstDualGoalAchieverUserId({
       activities,
@@ -991,7 +988,8 @@ export function buildChallengePredictions({
   const weekProgress = getWeekProgressContext()
 
   const currentStats = sortChallengeLeaderboard(
-    buildChallengeLeaderboard(profiles, activities, rewards, weekStart)
+    buildChallengeLeaderboard(profiles, activities, rewards, weekStart),
+    { stepGoal, mvpaGoal }
   )
   const groupGoal = buildGroupGoalContext(
     currentStats,
