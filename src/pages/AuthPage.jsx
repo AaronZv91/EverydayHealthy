@@ -36,7 +36,7 @@ export default function AuthPage({ onSignIn, onSignUp }) {
             🏃
           </div>
           <h1 className="text-2xl font-bold text-white">EverydayHealthy</h1>
-          <p className="mt-1 text-sm text-slate-400">70,000 steps · 200 min MVPA per week</p>
+          <p className="mt-1 text-sm text-slate-400">100,000 steps · 250 min MVPA per week</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

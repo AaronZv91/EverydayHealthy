@@ -212,7 +212,7 @@ Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.
 Group current state: ${weekContext.groupPaceLine}
 ${weekContext.paceSummary}
 Speak gently about groupCombinedPct (${weekContext.groupCombinedPct}%) and each player's individual pace. Encourage rest when someone seems behind or inactive — never shame.`
-    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per player (SGT). Speak with warmth about group progress.'
+    : 'Weekly goals: 100,000 steps + 250 MVPA minutes per player (SGT). Speak with warmth about group progress.'
 
   return `You write short, deeply supportive prediction copy for a weekly fitness challenge app.
 
@@ -293,8 +293,8 @@ Group combined weekly goal (${weekContext.playerCount} players): ${weekContext.t
 Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.daysRemaining} day(s) left, ${weekContext.weekProgressPct}% through the week).
 Group current state: ${weekContext.groupPaceLine}
 ${weekContext.paceSummary}
-For the group summary, use groupCombinedPct (${weekContext.groupCombinedPct}%) vs the combined target. For each player, use their individual % vs 70k/200 (see paceLine). Roast anyone behind linear pace for the day.`
-    : 'Weekly goals: 70,000 steps + 200 MVPA minutes per player (SGT). Group % = sum of all logs ÷ (players × individual goal).'
+For the group summary, use groupCombinedPct (${weekContext.groupCombinedPct}%) vs the combined target. For each player, use their individual % vs 100k/250 (see paceLine). Roast anyone behind linear pace for the day.`
+    : 'Weekly goals: 100,000 steps + 250 MVPA minutes per player (SGT). Group % = sum of all logs ÷ (players × individual goal).'
 
   return `You write short, brutally sarcastic prediction copy for a weekly fitness challenge app.
 
@@ -318,8 +318,8 @@ The stats below are authoritative. Do NOT invent numbers or change who was picke
 For each player recap, roast or hype their LAST completed week using lastWeekLine, history, notes, and rewards from that week context.
 For each player outlook, trash-talk or hype NEXT week using this week's pace, trend, and scores.
 ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, and pace:
-- Group summary: combined % vs total group target (all players × 70k steps + 200 MVPA each)
-- Per player: individual % vs their own 70k/200 (see paceLine)
+- Group summary: combined % vs total group target (all players × 100k steps + 250 MVPA each)
+- Per player: individual % vs their own 100k/250 (see paceLine)
 Quote or mock activity log notes when present — excuses, gym brags, lazy confessions.
 Reference streaks/PBs from engagementLine when roasting or hyping.
 Mock reward item names and emojis hard — roast pathetic handout titles ("Pity Steps", "Charity MVPA"), shame serial receivers, and clown generous senders. Use recentRewards and event logs (timestamps SGT) for savage commentary — late-night logging, Sunday panic dumps, serial donation begging, ghost weeks, etc.
