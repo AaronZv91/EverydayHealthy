@@ -93,6 +93,18 @@ function ChallengeRow({
   onOpenTrend,
 }) {
   const showFlair = !empathyMode
+
+  function openTrend() {
+    onOpenTrend?.(user)
+  }
+
+  function onRowKeyDown(event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openTrend()
+    }
+  }
+
   const rowBody = (
     <>
       <div className="mb-3 flex items-center gap-3">
@@ -111,14 +123,7 @@ function ChallengeRow({
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate font-medium text-slate-100">
-            <button
-              type="button"
-              onClick={() => onOpenTrend?.(user)}
-              className="truncate text-left underline decoration-slate-600 decoration-dotted underline-offset-4 transition hover:text-cyan-300 hover:decoration-cyan-400"
-              title={`View ${user.display_name}'s steps & MVPA trend`}
-            >
-              {user.display_name}
-            </button>
+            <span className="truncate">{user.display_name}</span>
             {showFlair && isWeeklySoldier && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-300"
@@ -148,6 +153,9 @@ function ChallengeRow({
             )}
           </p>
         </div>
+        <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-500 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+          Trend
+        </span>
       </div>
 
       {engagementBadges.length > 0 && (
@@ -196,10 +204,20 @@ function ChallengeRow({
     </>
   )
 
+  const rowProps = {
+    role: 'button',
+    tabIndex: 0,
+    onClick: openTrend,
+    onKeyDown: onRowKeyDown,
+    title: `View ${user.display_name}'s steps & MVPA trend`,
+    'aria-label': `View ${user.display_name}'s steps and MVPA trend`,
+  }
+
   if (!showFlair) {
     return (
       <li
-        className={`rounded-xl border px-3 py-3 ${
+        {...rowProps}
+        className={`group cursor-pointer rounded-xl border px-3 py-3 transition hover:border-cyan-500/40 hover:bg-slate-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
           isCurrentUser
             ? 'border-emerald-500/40 bg-emerald-950/20'
             : 'border-slate-800 bg-slate-800/40'
@@ -227,7 +245,10 @@ function ChallengeRow({
 
   if (isTopReceiver) {
     return (
-      <li className="beggar-pole-wrap">
+      <li
+        {...rowProps}
+        className="group beggar-pole-wrap cursor-pointer transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+      >
         <div
           className={`beggar-pole-inner beggar-cat-inner ${isWeeklySoldier ? 'soldier-cat-inner' : ''} ${isMvpaParasite ? 'parasite-cat-inner' : ''}`}
         >
@@ -239,7 +260,10 @@ function ChallengeRow({
 
   if (isWeeklySoldier) {
     return (
-      <li className="soldier-cat-wrap">
+      <li
+        {...rowProps}
+        className="group soldier-cat-wrap cursor-pointer transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+      >
         <div className={`soldier-cat-inner px-3 py-3 ${isMvpaParasite ? 'parasite-cat-inner' : ''}`}>
           {rowContent}
         </div>
@@ -249,7 +273,10 @@ function ChallengeRow({
 
   if (isMvpaParasite) {
     return (
-      <li className="parasite-cat-wrap">
+      <li
+        {...rowProps}
+        className="group parasite-cat-wrap cursor-pointer transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+      >
         <div className="parasite-cat-inner px-3 py-3">{rowContent}</div>
       </li>
     )
@@ -257,7 +284,8 @@ function ChallengeRow({
 
   return (
     <li
-      className={`rounded-xl border px-3 py-3 ${
+      {...rowProps}
+      className={`group cursor-pointer rounded-xl border px-3 py-3 transition hover:border-cyan-500/40 hover:bg-slate-800/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 ${
         isCurrentUser
           ? 'border-emerald-500/40 bg-emerald-950/20'
           : 'border-slate-800 bg-slate-800/40'
@@ -356,7 +384,7 @@ export default function Leaderboard({
               ? 'Resets Monday 12am SGT · goal 100,000 steps & 250 min MVPA'
               : 'All-time totals across every week'}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Tap a name to view steps & MVPA trends</p>
+          <p className="mt-1 text-xs text-slate-500">Tap a row to view steps & MVPA trends</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
