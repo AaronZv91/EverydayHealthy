@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import GoalPieChart, { PIE_COLORS } from './GoalPieChart'
 import GroupContributionCharts from './GroupContributionCharts'
+import PlayerTrendModal from './PlayerTrendModal'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 import parasiteBgUrl from '../assets/mvpa-parasite.png'
@@ -88,6 +89,7 @@ function ChallengeRow({
   showGoalPies,
   empathyMode = false,
   engagementBadges = [],
+  onOpenTrend,
 }) {
   const showFlair = !empathyMode
   const rowBody = (
@@ -108,7 +110,14 @@ function ChallengeRow({
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 truncate font-medium text-slate-100">
-            <span className="truncate">{user.display_name}</span>
+            <button
+              type="button"
+              onClick={() => onOpenTrend?.(user)}
+              className="truncate text-left underline decoration-slate-600 decoration-dotted underline-offset-4 transition hover:text-cyan-300 hover:decoration-cyan-400"
+              title={`View ${user.display_name}'s steps & MVPA trend`}
+            >
+              {user.display_name}
+            </button>
             {showFlair && isWeeklySoldier && (
               <span
                 className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-300"
@@ -267,6 +276,7 @@ function ChallengeList({
   weeklyMvpaParasiteUserId,
   empathyMode = false,
   engagementByUserId = {},
+  onOpenTrend,
 }) {
   if (users.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-500">No data yet</p>
@@ -303,6 +313,7 @@ function ChallengeList({
           engagementBadges={
             mode === 'weekly' ? (engagementByUserId[user.user_id] ?? []) : []
           }
+          onOpenTrend={onOpenTrend}
         />
       ))}
     </ol>
@@ -319,8 +330,10 @@ export default function Leaderboard({
   currentUserId,
   empathyMode = false,
   engagementByUserId = {},
+  challengeSource = null,
 }) {
   const [mode, setMode] = useState('weekly')
+  const [trendUser, setTrendUser] = useState(null)
   const users = mode === 'weekly' ? weeklyStats : allTimeStats
 
   if (loading) {
@@ -341,6 +354,7 @@ export default function Leaderboard({
               ? 'Resets Monday 12am SGT · goal 100,000 steps & 250 min MVPA'
               : 'All-time totals across every week'}
           </p>
+          <p className="mt-1 text-xs text-slate-500">Tap a name to view steps & MVPA trends</p>
         </div>
 
         <div className="flex rounded-xl bg-slate-800 p-1">
@@ -419,6 +433,7 @@ export default function Leaderboard({
           weeklyMvpaParasiteUserId={weeklyMvpaParasiteUserId}
           empathyMode={empathyMode}
           engagementByUserId={engagementByUserId}
+          onOpenTrend={setTrendUser}
         />
       </div>
 
@@ -427,6 +442,15 @@ export default function Leaderboard({
           <GroupContributionCharts users={users} />
         </div>
       )}
+
+      <PlayerTrendModal
+        open={Boolean(trendUser)}
+        onClose={() => setTrendUser(null)}
+        user={trendUser}
+        weekStart={challengeSource?.weekStart}
+        activities={challengeSource?.activities}
+        rewards={challengeSource?.rewards}
+      />
     </section>
   )
 }

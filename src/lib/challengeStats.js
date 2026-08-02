@@ -168,6 +168,128 @@ export function buildUserWeeklyTimeline({ userId, weekStart, activities, rewards
   }
 }
 
+function toDailyDeltas(accumulated) {
+  return accumulated.map((row, index) => {
+    const prev = index > 0 ? accumulated[index - 1] : { Self: 0, Rewarded: 0, Total: 0 }
+    return {
+      name: row.name,
+      Self: Math.max(0, (row.Self ?? 0) - (prev.Self ?? 0)),
+      Rewarded: Math.max(0, (row.Rewarded ?? 0) - (prev.Rewarded ?? 0)),
+      Total: Math.max(0, (row.Total ?? 0) - (prev.Total ?? 0)),
+    }
+  })
+}
+
+function listWeekStarts(activities, rewards) {
+  const weeks = new Set()
+  for (const row of activities) {
+    const key = normalizeWeekStart(row.week_start)
+    if (key) weeks.add(key)
+  }
+  for (const row of rewards) {
+    const key = normalizeWeekStart(row.week_start)
+    if (key) weeks.add(key)
+  }
+  return [...weeks].sort()
+}
+
+function formatWeekAxisLabel(weekStart) {
+  const key = normalizeWeekStart(weekStart)
+  if (!key) return ''
+  const monday = new Date(`${key}T12:00:00+08:00`)
+  return monday.toLocaleDateString('en-US', {
+    timeZone: 'Asia/Singapore',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/** Per-week totals for a player (up to `limit` most recent weeks, oldest → newest). */
+export function buildUserWeeklyHistoryTrend({
+  userId,
+  displayName,
+  activities,
+  rewards,
+  stepGoal,
+  mvpaGoal,
+  limit = 8,
+}) {
+  const weeks = listWeekStarts(activities, rewards).slice(-limit)
+
+  const series = weeks.map((weekStart) => {
+    const stats = buildUserChallengeStats({
+      userId,
+      displayName,
+      weekStart,
+      activities,
+      rewards,
+    })
+    const stepsPct = stepGoal > 0 ? Math.round((stats.total_steps / stepGoal) * 100) : 0
+    const mvpaPct = mvpaGoal > 0 ? Math.round((stats.total_mvpa / mvpaGoal) * 100) : 0
+
+    return {
+      weekStart,
+      name: formatWeekAxisLabel(weekStart),
+      Steps: stats.total_steps,
+      MVPA: stats.total_mvpa,
+      SelfSteps: stats.net_self_steps,
+      SelfMvpa: stats.net_self_mvpa,
+      stepsPct,
+      mvpaPct,
+      combinedPct: Math.round((stepsPct + mvpaPct) / 2),
+    }
+  })
+
+  return series
+}
+
+/** Full trend payload for the player trend modal. */
+export function buildPlayerTrendProfile({
+  userId,
+  displayName,
+  weekStart,
+  activities,
+  rewards,
+  stepGoal,
+  mvpaGoal,
+}) {
+  const stats = buildUserChallengeStats({
+    userId,
+    displayName,
+    weekStart,
+    activities,
+    rewards,
+  })
+  const timeline = buildUserWeeklyTimeline({ userId, weekStart, activities, rewards })
+  const history = buildUserWeeklyHistoryTrend({
+    userId,
+    displayName,
+    activities,
+    rewards,
+    stepGoal,
+    mvpaGoal,
+  })
+
+  const stepsPct = stepGoal > 0 ? Math.round((stats.total_steps / stepGoal) * 100) : 0
+  const mvpaPct = mvpaGoal > 0 ? Math.round((stats.total_mvpa / mvpaGoal) * 100) : 0
+
+  return {
+    userId,
+    displayName,
+    weekStart: normalizeWeekStart(weekStart),
+    stats,
+    stepsPct,
+    mvpaPct,
+    combinedPct: Math.round((stepsPct + mvpaPct) / 2),
+    accumulated: timeline,
+    daily: {
+      steps: toDailyDeltas(timeline.steps),
+      mvpa: toDailyDeltas(timeline.mvpa),
+    },
+    history,
+  }
+}
+
 export function buildChallengeLeaderboard(profiles, activities, rewards, weekStart = null) {
   return profiles.map((profile) =>
     buildUserChallengeStats({

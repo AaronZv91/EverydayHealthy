@@ -20,6 +20,7 @@ export function useChallengeLeaderboard(empathyMode = false) {
   const [weeklyBeggarUserId, setWeeklyBeggarUserId] = useState(null)
   const [weeklyMvpaParasiteUserId, setWeeklyMvpaParasiteUserId] = useState(null)
   const [predictions, setPredictions] = useState(null)
+  const [challengeSource, setChallengeSource] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [aiCopyLoading, setAiCopyLoading] = useState(false)
@@ -94,6 +95,7 @@ export function useChallengeLeaderboard(empathyMode = false) {
 
       const source = { profiles, activities, rewards, weekStart }
       sourceRef.current = source
+      setChallengeSource(source)
       schedulePredictions(source, empathyModeRef.current)
     } catch (error) {
       console.error(error)
@@ -152,6 +154,7 @@ export function useChallengeLeaderboard(empathyMode = false) {
     weeklyBeggarUserId,
     weeklyMvpaParasiteUserId,
     predictions,
+    challengeSource,
     loading,
     refreshing,
     aiCopyLoading,

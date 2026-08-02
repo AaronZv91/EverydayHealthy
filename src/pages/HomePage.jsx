@@ -23,6 +23,7 @@ export default function HomePage({ user, onSignOut }) {
     weeklyBeggarUserId,
     weeklyMvpaParasiteUserId,
     predictions,
+    challengeSource,
     loading: leaderboardLoading,
     refreshing: leaderboardRefreshing,
     aiCopyLoading,
@@ -104,6 +105,7 @@ export default function HomePage({ user, onSignOut }) {
           currentUserId={userId}
           empathyMode={empathyMode}
           engagementByUserId={engagementByUserId}
+          challengeSource={challengeSource}
         />
 
         <PredictionBoard
