@@ -365,7 +365,11 @@ export default function Leaderboard({
             className="btn-primary px-3 py-1.5 text-sm"
             onClick={() => setStoryboardOpen(true)}
             disabled={!challengeSource?.weekStart}
-            title="Animated presentation of everyone’s daily steps & MVPA"
+            title={
+              mode === 'alltime'
+                ? 'Animated all-time storyboard from first record to now'
+                : 'Animated presentation of everyone’s daily steps & MVPA'
+            }
           >
             Storyboard
           </button>
@@ -469,6 +473,7 @@ export default function Leaderboard({
         open={storyboardOpen}
         onClose={() => setStoryboardOpen(false)}
         challengeSource={challengeSource}
+        initialRange={mode === 'alltime' ? 'alltime' : 'week'}
       />
     </section>
   )

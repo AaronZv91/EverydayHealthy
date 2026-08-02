@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { buildWeekStoryboard } from '../lib/challengeStats'
+import { buildAllTimeStoryboard, buildWeekStoryboard } from '../lib/challengeStats'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber, formatWeekRange } from '../lib/weekUtils'
 
@@ -28,8 +28,9 @@ const PLAYER_COLORS = [
   '#c084fc',
 ]
 
-const DAY_REVEAL_MS = 1100
+const POINT_REVEAL_MS = 1100
 const LOOP_PAUSE_MS = 1800
+const ALLTIME_REVEAL_MS = 900
 
 function ChartTooltip({ active, payload, label, unit }) {
   if (!active || !payload?.length) return null
@@ -63,9 +64,11 @@ function MultiPlayerLineChart({ title, data, players, unit, colorByKey, yMax }) 
             <XAxis
               dataKey="name"
               stroke="#64748b"
-              fontSize={12}
+              fontSize={11}
               tickLine={false}
               axisLine={false}
+              interval="preserveStartEnd"
+              minTickGap={28}
             />
             <YAxis
               domain={[0, Math.max(yMax, 1)]}
@@ -89,10 +92,10 @@ function MultiPlayerLineChart({ title, data, players, unit, colorByKey, yMax }) 
                 name={player.displayName}
                 stroke={colorByKey.get(player.key)}
                 strokeWidth={2.5}
-                dot={{ r: 3.5, strokeWidth: 0, fill: colorByKey.get(player.key) }}
+                dot={{ r: 3, strokeWidth: 0, fill: colorByKey.get(player.key) }}
                 activeDot={{ r: 6 }}
                 isAnimationActive
-                animationDuration={850}
+                animationDuration={750}
                 animationEasing="ease-out"
                 connectNulls
               />
@@ -104,36 +107,43 @@ function MultiPlayerLineChart({ title, data, players, unit, colorByKey, yMax }) 
   )
 }
 
-export default function WeekStoryboard({ open, onClose, challengeSource }) {
+const EMPTY_BOARD = {
+  players: [],
+  pointLabels: [],
+  periodSteps: [],
+  periodMvpa: [],
+  accumulatedSteps: [],
+  accumulatedMvpa: [],
+  firstWeek: null,
+  lastWeek: null,
+}
+
+export default function WeekStoryboard({ open, onClose, challengeSource, initialRange = 'week' }) {
   const titleId = useId()
-  const [metric, setMetric] = useState('daily')
-  const [visibleDays, setVisibleDays] = useState(1)
+  const [range, setRange] = useState(initialRange)
+  const [metric, setMetric] = useState('period')
+  const [visiblePoints, setVisiblePoints] = useState(1)
   const [playing, setPlaying] = useState(true)
   const timerRef = useRef(null)
 
   const storyboard = useMemo(() => {
-    if (!open || !challengeSource?.weekStart) {
-      return {
-        players: [],
-        dayLabels: [],
-        dailySteps: [],
-        dailyMvpa: [],
-        accumulatedSteps: [],
-        accumulatedMvpa: [],
-      }
-    }
-    return buildWeekStoryboard({
+    if (!open || !challengeSource?.weekStart) return EMPTY_BOARD
+
+    const args = {
       profiles: challengeSource.profiles ?? [],
       activities: challengeSource.activities ?? [],
       rewards: challengeSource.rewards ?? [],
       weekStart: challengeSource.weekStart,
       stepGoal: WEEKLY_GOALS.steps,
       mvpaGoal: WEEKLY_GOALS.mvpaMinutes,
-    })
-  }, [open, challengeSource])
+    }
+
+    return range === 'alltime' ? buildAllTimeStoryboard(args) : buildWeekStoryboard(args)
+  }, [open, challengeSource, range])
 
   const players = storyboard.players
-  const totalDays = storyboard.dayLabels.length
+  const totalPoints = storyboard.pointLabels.length
+  const revealMs = range === 'alltime' ? ALLTIME_REVEAL_MS : POINT_REVEAL_MS
 
   const colorByKey = useMemo(() => {
     const map = new Map()
@@ -144,16 +154,17 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
   }, [players])
 
   const stepsSource =
-    metric === 'daily' ? storyboard.dailySteps : storyboard.accumulatedSteps
-  const mvpaSource = metric === 'daily' ? storyboard.dailyMvpa : storyboard.accumulatedMvpa
+    metric === 'period' ? storyboard.periodSteps : storyboard.accumulatedSteps
+  const mvpaSource =
+    metric === 'period' ? storyboard.periodMvpa : storyboard.accumulatedMvpa
 
   const visibleSteps = useMemo(
-    () => stepsSource.slice(0, Math.max(1, visibleDays)),
-    [stepsSource, visibleDays]
+    () => stepsSource.slice(0, Math.max(1, visiblePoints)),
+    [stepsSource, visiblePoints]
   )
   const visibleMvpa = useMemo(
-    () => mvpaSource.slice(0, Math.max(1, visibleDays)),
-    [mvpaSource, visibleDays]
+    () => mvpaSource.slice(0, Math.max(1, visiblePoints)),
+    [mvpaSource, visiblePoints]
   )
 
   const stepsYMax = useMemo(() => {
@@ -163,9 +174,8 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
         max = Math.max(max, Number(point[player.key]) || 0)
       }
     }
-    if (metric === 'accumulated') max = Math.max(max, WEEKLY_GOALS.steps * 0.25)
     return Math.max(max, 1)
-  }, [stepsSource, players, metric])
+  }, [stepsSource, players])
 
   const mvpaYMax = useMemo(() => {
     let max = 0
@@ -174,35 +184,40 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
         max = Math.max(max, Number(point[player.key]) || 0)
       }
     }
-    if (metric === 'accumulated') max = Math.max(max, WEEKLY_GOALS.mvpaMinutes * 0.25)
     return Math.max(max, 1)
-  }, [mvpaSource, players, metric])
+  }, [mvpaSource, players])
 
-  const currentDayLabel = storyboard.dayLabels[Math.max(0, visibleDays - 1)] ?? '—'
+  const currentLabel = storyboard.pointLabels[Math.max(0, visiblePoints - 1)] ?? '—'
 
   useEffect(() => {
     if (!open) return
-    setVisibleDays(1)
+    setRange(initialRange === 'alltime' ? 'alltime' : 'week')
+    setVisiblePoints(1)
     setPlaying(true)
-    setMetric('daily')
-  }, [open])
+    setMetric('period')
+  }, [open, initialRange])
+
+  useEffect(() => {
+    setVisiblePoints(1)
+    setPlaying(true)
+  }, [range])
 
   useEffect(() => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current)
       timerRef.current = null
     }
-    if (!open || !playing || totalDays === 0) return undefined
+    if (!open || !playing || totalPoints === 0) return undefined
 
-    const delay = visibleDays >= totalDays ? LOOP_PAUSE_MS : DAY_REVEAL_MS
+    const delay = visiblePoints >= totalPoints ? LOOP_PAUSE_MS : revealMs
     timerRef.current = window.setTimeout(() => {
-      setVisibleDays((current) => (current >= totalDays ? 1 : current + 1))
+      setVisiblePoints((current) => (current >= totalPoints ? 1 : current + 1))
     }, delay)
 
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current)
     }
-  }, [open, playing, visibleDays, totalDays])
+  }, [open, playing, visiblePoints, totalPoints, revealMs])
 
   useEffect(() => {
     if (!open) return undefined
@@ -211,26 +226,46 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
       if (event.key === 'Escape') onClose()
       if (event.key === 'ArrowRight' || event.key === ' ') {
         event.preventDefault()
-        setVisibleDays((current) => Math.min(totalDays, current + 1))
+        setVisiblePoints((current) => Math.min(totalPoints, current + 1))
       }
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        setVisibleDays((current) => Math.max(1, current - 1))
+        setVisiblePoints((current) => Math.max(1, current - 1))
       }
       if (event.key === 'p' || event.key === 'P') {
         setPlaying((value) => !value)
       }
       if (event.key === 'r' || event.key === 'R') {
-        setVisibleDays(1)
+        setVisiblePoints(1)
         setPlaying(true)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose, totalDays])
+  }, [open, onClose, totalPoints])
 
   if (!open) return null
+
+  const isAllTime = range === 'alltime'
+  const periodLabel = isAllTime ? 'Weekly totals' : 'Daily logged'
+  const accumulatedLabel = isAllTime ? 'Career accumulated' : 'Week accumulated'
+  const stepsTitle =
+    metric === 'period'
+      ? isAllTime
+        ? 'Steps per week'
+        : 'Steps logged per day'
+      : isAllTime
+        ? 'Steps career total'
+        : 'Steps accumulated'
+  const mvpaTitle =
+    metric === 'period'
+      ? isAllTime
+        ? 'MVPA per week'
+        : 'MVPA logged per day'
+      : isAllTime
+        ? 'MVPA career total'
+        : 'MVPA accumulated'
 
   return (
     <div
@@ -244,24 +279,51 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
       <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-3 sm:px-6">
         <div className="min-w-0">
           <h1 id={titleId} className="truncate text-sm font-semibold text-white sm:text-base">
-            Week storyboard · all players
+            {isAllTime ? 'All-time storyboard' : 'Week storyboard'} · all players
           </h1>
           <p className="text-xs text-slate-500">
-            {formatWeekRange()} · animating through{' '}
-            <span className="font-medium text-cyan-300">{currentDayLabel}</span> ({visibleDays}/
-            {Math.max(totalDays, 1)}) · ← → · P · R restart
+            {isAllTime
+              ? `${storyboard.pointLabels.length} weeks · first record → now`
+              : formatWeekRange()}{' '}
+            · animating{' '}
+            <span className="font-medium text-cyan-300">{currentLabel}</span> ({visiblePoints}/
+            {Math.max(totalPoints, 1)}) · ← → · P · R
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-xl bg-slate-800 p-1">
             <button
               type="button"
-              onClick={() => setMetric('daily')}
+              onClick={() => setRange('week')}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
-                metric === 'daily' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                range === 'week' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Daily logged
+              This week
+            </button>
+            <button
+              type="button"
+              onClick={() => setRange('alltime')}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                range === 'alltime'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All-time
+            </button>
+          </div>
+          <div className="flex rounded-xl bg-slate-800 p-1">
+            <button
+              type="button"
+              onClick={() => setMetric('period')}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                metric === 'period'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {periodLabel}
             </button>
             <button
               type="button"
@@ -272,14 +334,14 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Accumulated
+              {accumulatedLabel}
             </button>
           </div>
           <button
             type="button"
             className="btn-secondary px-3 py-1.5 text-xs"
             onClick={() => {
-              setVisibleDays(1)
+              setVisiblePoints(1)
               setPlaying(true)
             }}
           >
@@ -305,8 +367,8 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
           <>
             <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
               <MultiPlayerLineChart
-                key={`steps-${metric}-${visibleDays}`}
-                title={metric === 'daily' ? 'Steps logged per day' : 'Steps accumulated'}
+                key={`steps-${range}-${metric}-${visiblePoints}`}
+                title={stepsTitle}
                 data={visibleSteps}
                 players={players}
                 unit="steps"
@@ -314,8 +376,8 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
                 yMax={stepsYMax}
               />
               <MultiPlayerLineChart
-                key={`mvpa-${metric}-${visibleDays}`}
-                title={metric === 'daily' ? 'MVPA logged per day' : 'MVPA accumulated'}
+                key={`mvpa-${range}-${metric}-${visiblePoints}`}
+                title={mvpaTitle}
                 data={visibleMvpa}
                 players={players}
                 unit="min"
@@ -346,35 +408,37 @@ export default function WeekStoryboard({ open, onClose, challengeSource }) {
       </div>
 
       <footer className="relative z-10 border-t border-slate-800/80 px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center gap-2">
-          {storyboard.dayLabels.map((label, dayIndex) => {
-            const dayNumber = dayIndex + 1
-            const active = dayNumber === visibleDays
-            const revealed = dayNumber <= visibleDays
+        <div className="mx-auto flex max-w-6xl items-center gap-1.5 overflow-x-auto pb-1">
+          {storyboard.pointLabels.map((label, pointIndex) => {
+            const pointNumber = pointIndex + 1
+            const active = pointNumber === visiblePoints
+            const revealed = pointNumber <= visiblePoints
             return (
               <button
-                key={label}
+                key={`${label}-${pointIndex}`}
                 type="button"
-                className={`min-w-0 flex-1 rounded-lg px-1 py-2 text-center text-xs font-medium transition ${
+                className={`shrink-0 rounded-lg px-2 py-2 text-center text-[10px] font-medium transition sm:text-xs ${
                   active
                     ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-400/50'
                     : revealed
                       ? 'bg-slate-800 text-slate-300'
                       : 'bg-slate-900 text-slate-600'
                 }`}
-                onClick={() => setVisibleDays(dayNumber)}
+                onClick={() => setVisiblePoints(pointNumber)}
               >
                 {label}
               </button>
             )
           })}
         </div>
-        {playing && totalDays > 0 && (
+        {playing && totalPoints > 0 && (
           <div className="mx-auto mt-2 h-0.5 max-w-6xl overflow-hidden rounded-full bg-slate-800">
             <div
-              key={`${visibleDays}-${playing}`}
+              key={`${range}-${visiblePoints}-${playing}`}
               className="storyboard-progress h-full bg-cyan-400"
-              style={{ animationDuration: `${visibleDays >= totalDays ? LOOP_PAUSE_MS : DAY_REVEAL_MS}ms` }}
+              style={{
+                animationDuration: `${visiblePoints >= totalPoints ? LOOP_PAUSE_MS : revealMs}ms`,
+              }}
             />
           </div>
         )}
