@@ -2,6 +2,7 @@ import { useState } from 'react'
 import GoalPieChart, { PIE_COLORS } from './GoalPieChart'
 import GroupContributionCharts from './GroupContributionCharts'
 import PlayerTrendModal from './PlayerTrendModal'
+import WeekStoryboard from './WeekStoryboard'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber } from '../lib/weekUtils'
 import parasiteBgUrl from '../assets/mvpa-parasite.png'
@@ -334,6 +335,7 @@ export default function Leaderboard({
 }) {
   const [mode, setMode] = useState('weekly')
   const [trendUser, setTrendUser] = useState(null)
+  const [storyboardOpen, setStoryboardOpen] = useState(false)
   const users = mode === 'weekly' ? weeklyStats : allTimeStats
 
   if (loading) {
@@ -357,29 +359,40 @@ export default function Leaderboard({
           <p className="mt-1 text-xs text-slate-500">Tap a name to view steps & MVPA trends</p>
         </div>
 
-        <div className="flex rounded-xl bg-slate-800 p-1">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setMode('weekly')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              mode === 'weekly'
-                ? 'bg-brand-600 text-white'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
+            className="btn-primary px-3 py-1.5 text-sm"
+            onClick={() => setStoryboardOpen(true)}
+            disabled={!challengeSource?.weekStart}
+            title="Animated presentation of everyone’s daily steps & MVPA"
           >
-            Weekly
+            Storyboard
           </button>
-          <button
-            type="button"
-            onClick={() => setMode('alltime')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              mode === 'alltime'
-                ? 'bg-brand-600 text-white'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            All-time
-          </button>
+          <div className="flex rounded-xl bg-slate-800 p-1">
+            <button
+              type="button"
+              onClick={() => setMode('weekly')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                mode === 'weekly'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Weekly
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('alltime')}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                mode === 'alltime'
+                  ? 'bg-brand-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              All-time
+            </button>
+          </div>
         </div>
       </div>
 
@@ -450,6 +463,12 @@ export default function Leaderboard({
         weekStart={challengeSource?.weekStart}
         activities={challengeSource?.activities}
         rewards={challengeSource?.rewards}
+      />
+
+      <WeekStoryboard
+        open={storyboardOpen}
+        onClose={() => setStoryboardOpen(false)}
+        challengeSource={challengeSource}
       />
     </section>
   )

@@ -290,6 +290,120 @@ export function buildPlayerTrendProfile({
   }
 }
 
+/**
+ * Presentation storyboard: intro → each weekday (all players' daily logs) → week finale.
+ * Players ordered by current weekly combined goal %.
+ */
+export function buildWeekStoryboard({
+  profiles,
+  activities,
+  rewards,
+  weekStart,
+  stepGoal,
+  mvpaGoal,
+}) {
+  const weekKey = normalizeWeekStart(weekStart)
+  const dayBuckets = getWeekDayBuckets(weekStart)
+  if (!weekKey || !dayBuckets.length || !profiles.length) {
+    return { weekStart: weekKey, slides: [] }
+  }
+
+  const players = profiles
+    .map((profile) => {
+      const trend = buildPlayerTrendProfile({
+        userId: profile.id,
+        displayName: profile.display_name,
+        weekStart: weekKey,
+        activities,
+        rewards,
+        stepGoal,
+        mvpaGoal,
+      })
+      return {
+        userId: profile.id,
+        displayName: profile.display_name,
+        combinedPct: trend.combinedPct,
+        stepsPct: trend.stepsPct,
+        mvpaPct: trend.mvpaPct,
+        totalSteps: trend.stats.total_steps,
+        totalMvpa: trend.stats.total_mvpa,
+        dailySteps: trend.daily.steps,
+        dailyMvpa: trend.daily.mvpa,
+      }
+    })
+    .sort(
+      (a, b) =>
+        b.combinedPct - a.combinedPct ||
+        b.totalSteps - a.totalSteps ||
+        a.displayName.localeCompare(b.displayName)
+    )
+
+  const maxDailySteps = Math.max(
+    1,
+    ...players.flatMap((player) => player.dailySteps.map((day) => day.Total ?? 0))
+  )
+  const maxDailyMvpa = Math.max(
+    1,
+    ...players.flatMap((player) => player.dailyMvpa.map((day) => day.Total ?? 0))
+  )
+
+  const slides = [
+    {
+      id: 'intro',
+      type: 'intro',
+      title: 'Weekly Log Storyboard',
+      subtitle: 'Daily steps & MVPA · all players',
+      playerCount: players.length,
+    },
+  ]
+
+  dayBuckets.forEach((day, dayIndex) => {
+    const rows = players.map((player) => {
+      const steps = player.dailySteps[dayIndex]?.Total ?? 0
+      const mvpa = player.dailyMvpa[dayIndex]?.Total ?? 0
+      return {
+        userId: player.userId,
+        displayName: player.displayName,
+        steps,
+        mvpa,
+        active: steps > 0 || mvpa > 0,
+      }
+    })
+
+    slides.push({
+      id: `day-${day.key}`,
+      type: 'day',
+      dayLabel: day.label,
+      dayKey: day.key,
+      dayIndex,
+      rows,
+      maxDailySteps,
+      maxDailyMvpa,
+      totalSteps: rows.reduce((sum, row) => sum + row.steps, 0),
+      totalMvpa: rows.reduce((sum, row) => sum + row.mvpa, 0),
+      activeCount: rows.filter((row) => row.active).length,
+    })
+  })
+
+  slides.push({
+    id: 'finale',
+    type: 'finale',
+    title: 'Week so far',
+    players: players.map((player, index) => ({
+      rank: index + 1,
+      userId: player.userId,
+      displayName: player.displayName,
+      totalSteps: player.totalSteps,
+      totalMvpa: player.totalMvpa,
+      stepsPct: player.stepsPct,
+      mvpaPct: player.mvpaPct,
+      combinedPct: player.combinedPct,
+    })),
+  })
+
+  return { weekStart: weekKey, slides, players }
+}
+
 export function buildChallengeLeaderboard(profiles, activities, rewards, weekStart = null) {
   return profiles.map((profile) =>
     buildUserChallengeStats({
