@@ -291,8 +291,8 @@ export function buildPlayerTrendProfile({
 }
 
 /**
- * Presentation storyboard: intro → each weekday (all players' daily logs) → week finale.
- * Players ordered by current weekly combined goal %.
+ * Multi-player line-chart storyboard data (one window, all players).
+ * Returns daily + accumulated series keyed by display name.
  */
 export function buildWeekStoryboard({
   profiles,
@@ -305,7 +305,15 @@ export function buildWeekStoryboard({
   const weekKey = normalizeWeekStart(weekStart)
   const dayBuckets = getWeekDayBuckets(weekStart)
   if (!weekKey || !dayBuckets.length || !profiles.length) {
-    return { weekStart: weekKey, slides: [] }
+    return {
+      weekStart: weekKey,
+      players: [],
+      dayLabels: [],
+      dailySteps: [],
+      dailyMvpa: [],
+      accumulatedSteps: [],
+      accumulatedMvpa: [],
+    }
   }
 
   const players = profiles
@@ -322,6 +330,7 @@ export function buildWeekStoryboard({
       return {
         userId: profile.id,
         displayName: profile.display_name,
+        key: profile.display_name,
         combinedPct: trend.combinedPct,
         stepsPct: trend.stepsPct,
         mvpaPct: trend.mvpaPct,
@@ -329,6 +338,8 @@ export function buildWeekStoryboard({
         totalMvpa: trend.stats.total_mvpa,
         dailySteps: trend.daily.steps,
         dailyMvpa: trend.daily.mvpa,
+        accumulatedSteps: trend.accumulated.steps,
+        accumulatedMvpa: trend.accumulated.mvpa,
       }
     })
     .sort(
@@ -338,70 +349,56 @@ export function buildWeekStoryboard({
         a.displayName.localeCompare(b.displayName)
     )
 
-  const maxDailySteps = Math.max(
-    1,
-    ...players.flatMap((player) => player.dailySteps.map((day) => day.Total ?? 0))
-  )
-  const maxDailyMvpa = Math.max(
-    1,
-    ...players.flatMap((player) => player.dailyMvpa.map((day) => day.Total ?? 0))
-  )
+  const dayLabels = dayBuckets.map((day) => day.label)
 
-  const slides = [
-    {
-      id: 'intro',
-      type: 'intro',
-      title: 'Weekly Log Storyboard',
-      subtitle: 'Daily steps & MVPA · all players',
-      playerCount: players.length,
-    },
-  ]
-
-  dayBuckets.forEach((day, dayIndex) => {
-    const rows = players.map((player) => {
-      const steps = player.dailySteps[dayIndex]?.Total ?? 0
-      const mvpa = player.dailyMvpa[dayIndex]?.Total ?? 0
-      return {
-        userId: player.userId,
-        displayName: player.displayName,
-        steps,
-        mvpa,
-        active: steps > 0 || mvpa > 0,
-      }
-    })
-
-    slides.push({
-      id: `day-${day.key}`,
-      type: 'day',
-      dayLabel: day.label,
-      dayKey: day.key,
-      dayIndex,
-      rows,
-      maxDailySteps,
-      maxDailyMvpa,
-      totalSteps: rows.reduce((sum, row) => sum + row.steps, 0),
-      totalMvpa: rows.reduce((sum, row) => sum + row.mvpa, 0),
-      activeCount: rows.filter((row) => row.active).length,
-    })
+  const dailySteps = dayBuckets.map((day, dayIndex) => {
+    const point = { name: day.label }
+    for (const player of players) {
+      point[player.key] = player.dailySteps[dayIndex]?.Total ?? 0
+    }
+    return point
   })
 
-  slides.push({
-    id: 'finale',
-    type: 'finale',
-    title: 'Week so far',
-    players: players.map((player, index) => ({
-      rank: index + 1,
-      userId: player.userId,
-      displayName: player.displayName,
-      totalSteps: player.totalSteps,
-      totalMvpa: player.totalMvpa,
-      stepsPct: player.stepsPct,
-      mvpaPct: player.mvpaPct,
-      combinedPct: player.combinedPct,
+  const dailyMvpa = dayBuckets.map((day, dayIndex) => {
+    const point = { name: day.label }
+    for (const player of players) {
+      point[player.key] = player.dailyMvpa[dayIndex]?.Total ?? 0
+    }
+    return point
+  })
+
+  const accumulatedSteps = dayBuckets.map((day, dayIndex) => {
+    const point = { name: day.label }
+    for (const player of players) {
+      point[player.key] = player.accumulatedSteps[dayIndex]?.Total ?? 0
+    }
+    return point
+  })
+
+  const accumulatedMvpa = dayBuckets.map((day, dayIndex) => {
+    const point = { name: day.label }
+    for (const player of players) {
+      point[player.key] = player.accumulatedMvpa[dayIndex]?.Total ?? 0
+    }
+    return point
+  })
+
+  return {
+    weekStart: weekKey,
+    players: players.map(({ userId, displayName, key, combinedPct, totalSteps, totalMvpa }) => ({
+      userId,
+      displayName,
+      key,
+      combinedPct,
+      totalSteps,
+      totalMvpa,
     })),
-  })
-
-  return { weekStart: weekKey, slides, players }
+    dayLabels,
+    dailySteps,
+    dailyMvpa,
+    accumulatedSteps,
+    accumulatedMvpa,
+  }
 }
 
 export function buildChallengeLeaderboard(profiles, activities, rewards, weekStart = null) {
