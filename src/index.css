@@ -356,6 +356,35 @@ html.empathy-mode .empathy-switch-label {
   animation-fill-mode: both;
 }
 
+.storyboard-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.55), rgba(167, 139, 250, 0.45));
+  outline: none;
+  cursor: pointer;
+}
+
+.storyboard-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #22d3ee;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+}
+
+.storyboard-scrubber::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #22d3ee;
+  border: 2px solid #0f172a;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .storyboard-progress {
     animation: none !important;

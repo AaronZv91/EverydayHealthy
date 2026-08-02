@@ -1,14 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { buildAllTimeStoryboard, buildWeekStoryboard } from '../lib/challengeStats'
 import { WEEKLY_GOALS } from '../lib/supabaseClient'
 import { formatNumber, formatWeekRange } from '../lib/weekUtils'
@@ -28,80 +18,236 @@ const PLAYER_COLORS = [
   '#c084fc',
 ]
 
-const POINT_REVEAL_MS = 1100
-const LOOP_PAUSE_MS = 1800
-const ALLTIME_REVEAL_MS = 900
+/** Seconds to travel one segment (day or week). */
+const SEGMENT_SECONDS = 1.15
+const LOOP_PAUSE_SECONDS = 1.6
 
-function ChartTooltip({ active, payload, label, unit }) {
-  if (!active || !payload?.length) return null
-
-  const rows = [...payload].sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
-
-  return (
-    <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-sm shadow-xl backdrop-blur">
-      <p className="mb-1.5 font-medium text-slate-200">{label}</p>
-      {rows.map((entry) => (
-        <p key={entry.dataKey} className="tabular-nums" style={{ color: entry.color }}>
-          {entry.name}: {formatNumber(entry.value)}
-          {unit ? ` ${unit}` : ''}
-        </p>
-      ))}
-    </div>
-  )
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
 }
 
-function MultiPlayerLineChart({ title, data, players, unit, colorByKey, yMax }) {
+function sampleSeries(series, playerKey, progress) {
+  if (!series.length) return 0
+  const maxIndex = series.length - 1
+  const clamped = Math.max(0, Math.min(progress, maxIndex))
+  const left = Math.floor(clamped)
+  const right = Math.min(maxIndex, left + 1)
+  const frac = easeInOutCubic(clamped - left)
+  const a = Number(series[left]?.[playerKey]) || 0
+  const b = Number(series[right]?.[playerKey]) || 0
+  return a + (b - a) * frac
+}
+
+function computeYMax(series, players) {
+  let max = 0
+  for (const point of series) {
+    for (const player of players) {
+      max = Math.max(max, Number(point[player.key]) || 0)
+    }
+  }
+  return Math.max(max, 1)
+}
+
+/**
+ * HTML5 Canvas multi-player line chart with continuous draw animation.
+ * `progress` is a float from 0 .. (n-1) shared across charts.
+ */
+function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress, yMax }) {
+  const canvasRef = useRef(null)
+  const wrapRef = useRef(null)
+  const [hover, setHover] = useState(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const wrap = wrapRef.current
+    if (!canvas || !wrap || !series.length) return undefined
+
+    const draw = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const cssWidth = wrap.clientWidth
+      const cssHeight = Math.max(wrap.clientHeight, 240)
+      canvas.width = Math.floor(cssWidth * dpr)
+      canvas.height = Math.floor(cssHeight * dpr)
+      canvas.style.width = `${cssWidth}px`
+      canvas.style.height = `${cssHeight}px`
+
+      const ctx = canvas.getContext('2d')
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+      const pad = { top: 18, right: 16, bottom: 36, left: 52 }
+      const plotW = cssWidth - pad.left - pad.right
+      const plotH = cssHeight - pad.top - pad.bottom
+      const maxIndex = Math.max(series.length - 1, 1)
+      const yCeiling = Math.max(yMax, 1)
+
+      const xAt = (index) => pad.left + (index / maxIndex) * plotW
+      const yAt = (value) => pad.top + plotH - (value / yCeiling) * plotH
+
+      ctx.clearRect(0, 0, cssWidth, cssHeight)
+
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.35)'
+      ctx.fillRect(pad.left, pad.top, plotW, plotH)
+
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.95)'
+      ctx.lineWidth = 1
+      for (let i = 0; i <= 4; i += 1) {
+        const y = pad.top + (plotH * i) / 4
+        ctx.beginPath()
+        ctx.moveTo(pad.left, y)
+        ctx.lineTo(pad.left + plotW, y)
+        ctx.stroke()
+
+        const tick = Math.round(yCeiling * (1 - i / 4))
+        ctx.fillStyle = '#64748b'
+        ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(formatNumber(tick), pad.left - 8, y)
+      }
+
+      const labelStep = Math.max(1, Math.ceil(series.length / 8))
+      ctx.fillStyle = '#64748b'
+      ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'top'
+      series.forEach((point, index) => {
+        if (index % labelStep !== 0 && index !== series.length - 1) return
+        ctx.fillText(String(point.name), xAt(index), pad.top + plotH + 10)
+      })
+
+      const drawProgress = Math.max(0, Math.min(progress, maxIndex))
+
+      for (const player of players) {
+        const color = colorByKey.get(player.key)
+        ctx.save()
+        ctx.strokeStyle = color
+        ctx.globalAlpha = 0.18
+        ctx.lineWidth = 6
+        ctx.lineJoin = 'round'
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        let started = false
+        const steps = Math.max(24, Math.ceil(drawProgress * 24))
+        for (let s = 0; s <= steps; s += 1) {
+          const t = (s / steps) * drawProgress
+          const x = xAt(t)
+          const y = yAt(sampleSeries(series, player.key, t))
+          if (!started) {
+            ctx.moveTo(x, y)
+            started = true
+          } else {
+            ctx.lineTo(x, y)
+          }
+        }
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      for (const player of players) {
+        const color = colorByKey.get(player.key)
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2.6
+        ctx.lineJoin = 'round'
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        let started = false
+        const steps = Math.max(32, Math.ceil(drawProgress * 32))
+        for (let s = 0; s <= steps; s += 1) {
+          const t = (s / steps) * drawProgress
+          const x = xAt(t)
+          const y = yAt(sampleSeries(series, player.key, t))
+          if (!started) {
+            ctx.moveTo(x, y)
+            started = true
+          } else {
+            ctx.lineTo(x, y)
+          }
+        }
+        ctx.stroke()
+
+        const headX = xAt(drawProgress)
+        const headY = yAt(sampleSeries(series, player.key, drawProgress))
+        ctx.beginPath()
+        ctx.fillStyle = color
+        ctx.arc(headX, headY, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'
+        ctx.arc(headX, headY, 1.8, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      const playX = xAt(drawProgress)
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.35)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(playX, pad.top)
+      ctx.lineTo(playX, pad.top + plotH)
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
+    draw()
+    const observer = new ResizeObserver(draw)
+    observer.observe(wrap)
+    return () => observer.disconnect()
+  }, [series, players, colorByKey, progress, yMax])
+
+  function handlePointer(event) {
+    const wrap = wrapRef.current
+    if (!wrap || !series.length) return
+    const rect = wrap.getBoundingClientRect()
+    const padLeft = 52
+    const padRight = 16
+    const plotW = rect.width - padLeft - padRight
+    const x = event.clientX - rect.left - padLeft
+    const ratio = Math.max(0, Math.min(1, x / plotW))
+    const index = Math.round(ratio * (series.length - 1))
+    const point = series[index]
+    if (!point) {
+      setHover(null)
+      return
+    }
+    const rows = players
+      .map((player) => ({
+        name: player.displayName,
+        value: Number(point[player.key]) || 0,
+        color: colorByKey.get(player.key),
+      }))
+      .sort((a, b) => b.value - a.value)
+    setHover({ label: point.name, rows, left: event.clientX - rect.left, top: event.clientY - rect.top })
+  }
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100 sm:text-base">{title}</h3>
         <p className="text-xs text-slate-500">{unit}</p>
       </div>
-      <div className="min-h-[220px] flex-1 rounded-xl border border-slate-800/80 bg-slate-950/40 p-2 sm:min-h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-            <XAxis
-              dataKey="name"
-              stroke="#64748b"
-              fontSize={11}
-              tickLine={false}
-              axisLine={false}
-              interval="preserveStartEnd"
-              minTickGap={28}
-            />
-            <YAxis
-              domain={[0, Math.max(yMax, 1)]}
-              stroke="#64748b"
-              fontSize={11}
-              width={48}
-              tickFormatter={formatNumber}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<ChartTooltip unit={unit} />} />
-            <Legend
-              wrapperStyle={{ fontSize: 11, color: '#94a3b8', paddingTop: 8 }}
-              iconType="circle"
-            />
-            {players.map((player) => (
-              <Line
-                key={player.key}
-                type="monotone"
-                dataKey={player.key}
-                name={player.displayName}
-                stroke={colorByKey.get(player.key)}
-                strokeWidth={2.5}
-                dot={{ r: 3, strokeWidth: 0, fill: colorByKey.get(player.key) }}
-                activeDot={{ r: 6 }}
-                isAnimationActive
-                animationDuration={750}
-                animationEasing="ease-out"
-                connectNulls
-              />
+      <div
+        ref={wrapRef}
+        className="relative min-h-[240px] flex-1 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950/40"
+        onMouseMove={handlePointer}
+        onMouseLeave={() => setHover(null)}
+      >
+        <canvas ref={canvasRef} className="block h-full w-full" />
+        {hover && (
+          <div
+            className="pointer-events-none absolute z-10 max-h-48 overflow-y-auto rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs shadow-xl"
+            style={{
+              left: Math.min(hover.left + 12, (wrapRef.current?.clientWidth ?? 320) - 180),
+              top: Math.max(8, hover.top - 8),
+            }}
+          >
+            <p className="mb-1 font-medium text-slate-200">{hover.label}</p>
+            {hover.rows.map((row) => (
+              <p key={row.name} className="tabular-nums" style={{ color: row.color }}>
+                {row.name}: {formatNumber(row.value)} {unit}
+              </p>
             ))}
-          </LineChart>
-        </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -114,17 +260,18 @@ const EMPTY_BOARD = {
   periodMvpa: [],
   accumulatedSteps: [],
   accumulatedMvpa: [],
-  firstWeek: null,
-  lastWeek: null,
 }
 
 export default function WeekStoryboard({ open, onClose, challengeSource, initialRange = 'week' }) {
   const titleId = useId()
   const [range, setRange] = useState(initialRange)
   const [metric, setMetric] = useState('period')
-  const [visiblePoints, setVisiblePoints] = useState(1)
   const [playing, setPlaying] = useState(true)
-  const timerRef = useRef(null)
+  const [progress, setProgress] = useState(0)
+  const progressRef = useRef(0)
+  const rafRef = useRef(0)
+  const lastTsRef = useRef(0)
+  const pauseUntilRef = useRef(0)
 
   const storyboard = useMemo(() => {
     if (!open || !challengeSource?.weekStart) return EMPTY_BOARD
@@ -142,8 +289,7 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
   }, [open, challengeSource, range])
 
   const players = storyboard.players
-  const totalPoints = storyboard.pointLabels.length
-  const revealMs = range === 'alltime' ? ALLTIME_REVEAL_MS : POINT_REVEAL_MS
+  const maxProgress = Math.max(storyboard.pointLabels.length - 1, 0)
 
   const colorByKey = useMemo(() => {
     const map = new Map()
@@ -158,66 +304,69 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
   const mvpaSource =
     metric === 'period' ? storyboard.periodMvpa : storyboard.accumulatedMvpa
 
-  const visibleSteps = useMemo(
-    () => stepsSource.slice(0, Math.max(1, visiblePoints)),
-    [stepsSource, visiblePoints]
-  )
-  const visibleMvpa = useMemo(
-    () => mvpaSource.slice(0, Math.max(1, visiblePoints)),
-    [mvpaSource, visiblePoints]
-  )
+  const stepsYMax = useMemo(() => computeYMax(stepsSource, players), [stepsSource, players])
+  const mvpaYMax = useMemo(() => computeYMax(mvpaSource, players), [mvpaSource, players])
 
-  const stepsYMax = useMemo(() => {
-    let max = 0
-    for (const point of stepsSource) {
-      for (const player of players) {
-        max = Math.max(max, Number(point[player.key]) || 0)
-      }
-    }
-    return Math.max(max, 1)
-  }, [stepsSource, players])
-
-  const mvpaYMax = useMemo(() => {
-    let max = 0
-    for (const point of mvpaSource) {
-      for (const player of players) {
-        max = Math.max(max, Number(point[player.key]) || 0)
-      }
-    }
-    return Math.max(max, 1)
-  }, [mvpaSource, players])
-
-  const currentLabel = storyboard.pointLabels[Math.max(0, visiblePoints - 1)] ?? '—'
+  const currentIndex = Math.min(maxProgress, Math.round(progress))
+  const currentLabel = storyboard.pointLabels[currentIndex] ?? '—'
+  const pctComplete = maxProgress > 0 ? Math.round((progress / maxProgress) * 100) : 0
 
   useEffect(() => {
     if (!open) return
     setRange(initialRange === 'alltime' ? 'alltime' : 'week')
-    setVisiblePoints(1)
-    setPlaying(true)
     setMetric('period')
+    setPlaying(true)
+    progressRef.current = 0
+    setProgress(0)
+    pauseUntilRef.current = 0
   }, [open, initialRange])
 
   useEffect(() => {
-    setVisiblePoints(1)
+    progressRef.current = 0
+    setProgress(0)
+    pauseUntilRef.current = 0
     setPlaying(true)
-  }, [range])
+  }, [range, metric])
 
   useEffect(() => {
-    if (timerRef.current) {
-      window.clearTimeout(timerRef.current)
-      timerRef.current = null
+    if (!open) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      return undefined
     }
-    if (!open || !playing || totalPoints === 0) return undefined
 
-    const delay = visiblePoints >= totalPoints ? LOOP_PAUSE_MS : revealMs
-    timerRef.current = window.setTimeout(() => {
-      setVisiblePoints((current) => (current >= totalPoints ? 1 : current + 1))
-    }, delay)
+    lastTsRef.current = 0
 
+    const tick = (ts) => {
+      if (!lastTsRef.current) lastTsRef.current = ts
+      const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000)
+      lastTsRef.current = ts
+
+      if (playing && maxProgress > 0) {
+        if (progressRef.current >= maxProgress - 0.0001) {
+          if (!pauseUntilRef.current) {
+            pauseUntilRef.current = ts + LOOP_PAUSE_SECONDS * 1000
+            progressRef.current = maxProgress
+            setProgress(maxProgress)
+          } else if (ts >= pauseUntilRef.current) {
+            progressRef.current = 0
+            setProgress(0)
+            pauseUntilRef.current = 0
+          }
+        } else {
+          pauseUntilRef.current = 0
+          progressRef.current = Math.min(maxProgress, progressRef.current + dt / SEGMENT_SECONDS)
+          setProgress(progressRef.current)
+        }
+      }
+
+      rafRef.current = requestAnimationFrame(tick)
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
     return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [open, playing, visiblePoints, totalPoints, revealMs])
+  }, [open, playing, maxProgress, range, metric])
 
   useEffect(() => {
     if (!open) return undefined
@@ -226,24 +375,28 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
       if (event.key === 'Escape') onClose()
       if (event.key === 'ArrowRight' || event.key === ' ') {
         event.preventDefault()
-        setVisiblePoints((current) => Math.min(totalPoints, current + 1))
+        progressRef.current = Math.min(maxProgress, progressRef.current + 1)
+        setProgress(progressRef.current)
       }
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        setVisiblePoints((current) => Math.max(1, current - 1))
+        progressRef.current = Math.max(0, progressRef.current - 1)
+        setProgress(progressRef.current)
       }
       if (event.key === 'p' || event.key === 'P') {
         setPlaying((value) => !value)
       }
       if (event.key === 'r' || event.key === 'R') {
-        setVisiblePoints(1)
+        progressRef.current = 0
+        setProgress(0)
+        pauseUntilRef.current = 0
         setPlaying(true)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose, totalPoints])
+  }, [open, onClose, maxProgress])
 
   if (!open) return null
 
@@ -279,15 +432,14 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
       <header className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-3 sm:px-6">
         <div className="min-w-0">
           <h1 id={titleId} className="truncate text-sm font-semibold text-white sm:text-base">
-            {isAllTime ? 'All-time storyboard' : 'Week storyboard'} · all players
+            {isAllTime ? 'All-time storyboard' : 'Week storyboard'} · canvas animation
           </h1>
           <p className="text-xs text-slate-500">
             {isAllTime
               ? `${storyboard.pointLabels.length} weeks · first record → now`
               : formatWeekRange()}{' '}
-            · animating{' '}
-            <span className="font-medium text-cyan-300">{currentLabel}</span> ({visiblePoints}/
-            {Math.max(totalPoints, 1)}) · ← → · P · R
+            · <span className="font-medium text-cyan-300">{currentLabel}</span> · {pctComplete}% · ← →
+            · P · R
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -341,7 +493,9 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
             type="button"
             className="btn-secondary px-3 py-1.5 text-xs"
             onClick={() => {
-              setVisiblePoints(1)
+              progressRef.current = 0
+              setProgress(0)
+              pauseUntilRef.current = 0
               setPlaying(true)
             }}
           >
@@ -365,83 +519,74 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
           <p className="flex flex-1 items-center justify-center text-slate-500">No player data yet</p>
         ) : (
           <>
-            <div className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:flex-row">
-              <MultiPlayerLineChart
-                key={`steps-${range}-${metric}-${visiblePoints}`}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+              <SmoothCanvasChart
                 title={stepsTitle}
-                data={visibleSteps}
-                players={players}
                 unit="steps"
+                series={stepsSource}
+                players={players}
                 colorByKey={colorByKey}
+                progress={progress}
                 yMax={stepsYMax}
               />
-              <MultiPlayerLineChart
-                key={`mvpa-${range}-${metric}-${visiblePoints}`}
+              <SmoothCanvasChart
                 title={mvpaTitle}
-                data={visibleMvpa}
-                players={players}
                 unit="min"
+                series={mvpaSource}
+                players={players}
                 colorByKey={colorByKey}
+                progress={progress}
                 yMax={mvpaYMax}
               />
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-slate-800/80 pt-3">
-              {players.map((player) => (
-                <div
-                  key={player.userId}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/70 px-2.5 py-1 text-xs"
-                >
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: colorByKey.get(player.key) }}
-                  />
-                  <span className="font-medium text-slate-200">{player.displayName}</span>
-                  <span className="tabular-nums text-slate-500">
-                    {formatNumber(player.totalSteps)} · {formatNumber(player.totalMvpa)}m
-                  </span>
-                </div>
-              ))}
+              {players.map((player) => {
+                const liveSteps = sampleSeries(stepsSource, player.key, progress)
+                const liveMvpa = sampleSeries(mvpaSource, player.key, progress)
+                return (
+                  <div
+                    key={player.userId}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/70 px-2.5 py-1 text-xs"
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: colorByKey.get(player.key) }}
+                    />
+                    <span className="font-medium text-slate-200">{player.displayName}</span>
+                    <span className="tabular-nums text-slate-500">
+                      {formatNumber(Math.round(liveSteps))} · {formatNumber(Math.round(liveMvpa))}m
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </>
         )}
       </div>
 
       <footer className="relative z-10 border-t border-slate-800/80 px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center gap-1.5 overflow-x-auto pb-1">
-          {storyboard.pointLabels.map((label, pointIndex) => {
-            const pointNumber = pointIndex + 1
-            const active = pointNumber === visiblePoints
-            const revealed = pointNumber <= visiblePoints
-            return (
-              <button
-                key={`${label}-${pointIndex}`}
-                type="button"
-                className={`shrink-0 rounded-lg px-2 py-2 text-center text-[10px] font-medium transition sm:text-xs ${
-                  active
-                    ? 'bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-400/50'
-                    : revealed
-                      ? 'bg-slate-800 text-slate-300'
-                      : 'bg-slate-900 text-slate-600'
-                }`}
-                onClick={() => setVisiblePoints(pointNumber)}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-        {playing && totalPoints > 0 && (
-          <div className="mx-auto mt-2 h-0.5 max-w-6xl overflow-hidden rounded-full bg-slate-800">
-            <div
-              key={`${range}-${visiblePoints}-${playing}`}
-              className="storyboard-progress h-full bg-cyan-400"
-              style={{
-                animationDuration: `${visiblePoints >= totalPoints ? LOOP_PAUSE_MS : revealMs}ms`,
-              }}
-            />
+        <div className="mx-auto max-w-6xl">
+          <input
+            type="range"
+            min={0}
+            max={maxProgress || 0}
+            step={0.01}
+            value={progress}
+            onChange={(event) => {
+              const next = Number(event.target.value)
+              progressRef.current = next
+              setProgress(next)
+            }}
+            className="storyboard-scrubber w-full"
+            aria-label="Scrub storyboard timeline"
+          />
+          <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-slate-500 sm:text-xs">
+            <span>{storyboard.pointLabels[0] ?? '—'}</span>
+            <span className="font-medium text-cyan-300/90">{currentLabel}</span>
+            <span>{storyboard.pointLabels[storyboard.pointLabels.length - 1] ?? '—'}</span>
           </div>
-        )}
+        </div>
       </footer>
     </div>
   )
