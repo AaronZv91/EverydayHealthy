@@ -20,7 +20,7 @@ const PLAYER_COLORS = [
 
 /** Seconds to travel one segment (day or week). */
 const SEGMENT_SECONDS = 1.15
-const LOOP_PAUSE_SECONDS = 1.6
+const ALLTIME_SEGMENT_SECONDS = 0.55
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
@@ -268,10 +268,10 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
   const [metric, setMetric] = useState('period')
   const [playing, setPlaying] = useState(true)
   const [progress, setProgress] = useState(0)
+  const [finished, setFinished] = useState(false)
   const progressRef = useRef(0)
   const rafRef = useRef(0)
   const lastTsRef = useRef(0)
-  const pauseUntilRef = useRef(0)
 
   const storyboard = useMemo(() => {
     if (!open || !challengeSource?.weekStart) return EMPTY_BOARD
@@ -311,20 +311,22 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
   const currentLabel = storyboard.pointLabels[currentIndex] ?? '—'
   const pctComplete = maxProgress > 0 ? Math.round((progress / maxProgress) * 100) : 0
 
+  const segmentSeconds = range === 'alltime' ? ALLTIME_SEGMENT_SECONDS : SEGMENT_SECONDS
+
   useEffect(() => {
     if (!open) return
     setRange(initialRange === 'alltime' ? 'alltime' : 'week')
     setMetric('period')
     setPlaying(true)
+    setFinished(false)
     progressRef.current = 0
     setProgress(0)
-    pauseUntilRef.current = 0
   }, [open, initialRange])
 
   useEffect(() => {
     progressRef.current = 0
     setProgress(0)
-    pauseUntilRef.current = 0
+    setFinished(false)
     setPlaying(true)
   }, [range, metric])
 
@@ -341,20 +343,14 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
       const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000)
       lastTsRef.current = ts
 
-      if (playing && maxProgress > 0) {
+      if (playing && maxProgress > 0 && !finished) {
         if (progressRef.current >= maxProgress - 0.0001) {
-          if (!pauseUntilRef.current) {
-            pauseUntilRef.current = ts + LOOP_PAUSE_SECONDS * 1000
-            progressRef.current = maxProgress
-            setProgress(maxProgress)
-          } else if (ts >= pauseUntilRef.current) {
-            progressRef.current = 0
-            setProgress(0)
-            pauseUntilRef.current = 0
-          }
+          progressRef.current = maxProgress
+          setProgress(maxProgress)
+          setFinished(true)
+          setPlaying(false)
         } else {
-          pauseUntilRef.current = 0
-          progressRef.current = Math.min(maxProgress, progressRef.current + dt / SEGMENT_SECONDS)
+          progressRef.current = Math.min(maxProgress, progressRef.current + dt / segmentSeconds)
           setProgress(progressRef.current)
         }
       }
@@ -366,7 +362,7 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [open, playing, maxProgress, range, metric])
+  }, [open, playing, maxProgress, range, metric, finished, segmentSeconds])
 
   useEffect(() => {
     if (!open) return undefined
@@ -375,47 +371,56 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
       if (event.key === 'Escape') onClose()
       if (event.key === 'ArrowRight' || event.key === ' ') {
         event.preventDefault()
+        setFinished(false)
         progressRef.current = Math.min(maxProgress, progressRef.current + 1)
         setProgress(progressRef.current)
+        if (progressRef.current >= maxProgress) {
+          setFinished(true)
+          setPlaying(false)
+        }
       }
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
+        setFinished(false)
         progressRef.current = Math.max(0, progressRef.current - 1)
         setProgress(progressRef.current)
       }
       if (event.key === 'p' || event.key === 'P') {
-        setPlaying((value) => !value)
+        if (finished) {
+          progressRef.current = 0
+          setProgress(0)
+          setFinished(false)
+          setPlaying(true)
+        } else {
+          setPlaying((value) => !value)
+        }
       }
       if (event.key === 'r' || event.key === 'R') {
         progressRef.current = 0
         setProgress(0)
-        pauseUntilRef.current = 0
+        setFinished(false)
         setPlaying(true)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose, maxProgress])
+  }, [open, onClose, maxProgress, finished])
 
   if (!open) return null
 
   const isAllTime = range === 'alltime'
-  const periodLabel = isAllTime ? 'Weekly totals' : 'Daily logged'
+  const periodLabel = 'Daily logged'
   const accumulatedLabel = isAllTime ? 'Career accumulated' : 'Week accumulated'
   const stepsTitle =
     metric === 'period'
-      ? isAllTime
-        ? 'Steps per week'
-        : 'Steps logged per day'
+      ? 'Steps logged per day'
       : isAllTime
         ? 'Steps career total'
         : 'Steps accumulated'
   const mvpaTitle =
     metric === 'period'
-      ? isAllTime
-        ? 'MVPA per week'
-        : 'MVPA logged per day'
+      ? 'MVPA logged per day'
       : isAllTime
         ? 'MVPA career total'
         : 'MVPA accumulated'
@@ -436,10 +441,10 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
           </h1>
           <p className="text-xs text-slate-500">
             {isAllTime
-              ? `${storyboard.pointLabels.length} weeks · first record → now`
+              ? `${storyboard.pointLabels.length} days · first record → today`
               : formatWeekRange()}{' '}
-            · <span className="font-medium text-cyan-300">{currentLabel}</span> · {pctComplete}% · ← →
-            · P · R
+            · <span className="font-medium text-cyan-300">{currentLabel}</span> · {pctComplete}%
+            {finished ? ' · finished' : ''} · ← → · P · R
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -495,7 +500,7 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
             onClick={() => {
               progressRef.current = 0
               setProgress(0)
-              pauseUntilRef.current = 0
+              setFinished(false)
               setPlaying(true)
             }}
           >
@@ -504,9 +509,18 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
           <button
             type="button"
             className="btn-secondary px-3 py-1.5 text-xs"
-            onClick={() => setPlaying((value) => !value)}
+            onClick={() => {
+              if (finished) {
+                progressRef.current = 0
+                setProgress(0)
+                setFinished(false)
+                setPlaying(true)
+                return
+              }
+              setPlaying((value) => !value)
+            }}
           >
-            {playing ? 'Pause' : 'Play'}
+            {finished ? 'Replay' : playing ? 'Pause' : 'Play'}
           </button>
           <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={onClose}>
             Exit
@@ -577,6 +591,12 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
               const next = Number(event.target.value)
               progressRef.current = next
               setProgress(next)
+              if (next >= maxProgress - 0.0001) {
+                setFinished(true)
+                setPlaying(false)
+              } else {
+                setFinished(false)
+              }
             }}
             className="storyboard-scrubber w-full"
             aria-label="Scrub storyboard timeline"
