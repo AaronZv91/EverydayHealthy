@@ -22,8 +22,8 @@ export const supabase = isSupabaseConfigured
   : null
 
 export const WEEKLY_GOALS = {
-  steps: 100_000,
-  mvpaMinutes: 250,
+  steps: 112_000,
+  mvpaMinutes: 400,
 }
 
 export const REWARD_ERROR_MESSAGES = {
