@@ -290,162 +290,34 @@ export function buildPlayerTrendProfile({
   }
 }
 
-function addDaysToYmd(ymd, days) {
-  const key = String(ymd ?? '').slice(0, 10)
+function addWeeksToYmd(weekStart, weeks) {
+  const key = normalizeWeekStart(weekStart)
   if (!key) return ''
   const date = new Date(`${key}T12:00:00+08:00`)
-  date.setUTCDate(date.getUTCDate() + days)
+  date.setUTCDate(date.getUTCDate() + weeks * 7)
   return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' })
 }
 
-function formatDayAxisLabel(ymd) {
-  const key = String(ymd ?? '').slice(0, 10)
-  if (!key) return ''
-  return new Date(`${key}T12:00:00+08:00`).toLocaleDateString('en-US', {
-    timeZone: 'Asia/Singapore',
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+/** Inclusive Monday week keys from earliest activity/reward through `endWeek`. */
+function listWeeksThrough(activities, rewards, endWeek) {
+  const recorded = listWeekStarts(activities, rewards)
+  const end = normalizeWeekStart(endWeek)
+  if (!recorded.length && !end) return []
 
-function findEarliestDayKey(activities, rewards) {
-  let min = ''
-  for (const row of activities) {
-    const key = getSgtDateKey(row.created_at) || normalizeWeekStart(row.week_start)
-    if (key && (!min || key < min)) min = key
-  }
-  for (const row of rewards) {
-    const key = getSgtDateKey(row.created_at) || normalizeWeekStart(row.week_start)
-    if (key && (!min || key < min)) min = key
-  }
-  return min
-}
+  const start = recorded[0] || end
+  const finish =
+    end && (!recorded.length || end >= recorded[recorded.length - 1])
+      ? end
+      : recorded[recorded.length - 1]
 
-function listDaysInclusive(startYmd, endYmd) {
-  const start = String(startYmd ?? '').slice(0, 10)
-  const end = String(endYmd ?? '').slice(0, 10)
-  if (!start || !end || start > end) return []
-
-  const days = []
+  const weeks = []
   let cursor = start
-  while (cursor && cursor <= end) {
-    days.push(cursor)
-    cursor = addDaysToYmd(cursor, 1)
-    if (days.length > 3660) break
+  while (cursor && cursor <= finish) {
+    weeks.push(cursor)
+    cursor = addWeeksToYmd(cursor, 1)
+    if (weeks.length > 520) break
   }
-  return days
-}
-
-function buildUserEventStream(userId, activities, rewards) {
-  return [
-    ...activities
-      .filter((row) => row.user_id === userId)
-      .map((row) => ({
-        kind: 'activity',
-        steps: Number(row.steps) || 0,
-        mvpa: Number(row.mvpa_minutes) || 0,
-        dayKey: getSgtDateKey(row.created_at) || normalizeWeekStart(row.week_start),
-        created_at: row.created_at,
-        tieBreak: row.id ?? '',
-      })),
-    ...rewards.flatMap((row) => {
-      const entries = []
-      const dayKey = getSgtDateKey(row.created_at) || normalizeWeekStart(row.week_start)
-      if (row.sender_id === userId) {
-        entries.push({
-          kind: 'reward_sent',
-          steps: Number(row.steps) || 0,
-          mvpa: Number(row.mvpa_minutes) || 0,
-          dayKey,
-          created_at: row.created_at,
-          tieBreak: `${row.id}-sent`,
-        })
-      }
-      if (row.receiver_id === userId) {
-        entries.push({
-          kind: 'reward_received',
-          steps: Number(row.steps) || 0,
-          mvpa: Number(row.mvpa_minutes) || 0,
-          dayKey,
-          created_at: row.created_at,
-          tieBreak: `${row.id}-recv`,
-        })
-      }
-      return entries
-    }),
-  ].sort(
-    (a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
-      String(a.tieBreak).localeCompare(String(b.tieBreak))
-  )
-}
-
-function applyEventToState(state, event) {
-  if (event.kind === 'activity') {
-    state.selfSteps += event.steps
-    state.selfMvpa += event.mvpa
-  } else if (event.kind === 'reward_sent') {
-    state.sentSteps += event.steps
-    state.sentMvpa += event.mvpa
-  } else {
-    state.receivedSteps += event.steps
-    state.receivedMvpa += event.mvpa
-  }
-}
-
-function stateTotals(state) {
-  const selfSteps = Math.max(0, state.selfSteps - state.sentSteps)
-  const selfMvpa = Math.max(0, state.selfMvpa - state.sentMvpa)
-  return {
-    steps: selfSteps + state.receivedSteps,
-    mvpa: selfMvpa + state.receivedMvpa,
-  }
-}
-
-/** Per-day logged + running totals for one user across an inclusive day key list. */
-function buildUserDailyAllTimeSeries(userId, dayKeys, activities, rewards) {
-  const events = buildUserEventStream(userId, activities, rewards)
-  const state = {
-    selfSteps: 0,
-    selfMvpa: 0,
-    sentSteps: 0,
-    sentMvpa: 0,
-    receivedSteps: 0,
-    receivedMvpa: 0,
-  }
-
-  let eventIndex = 0
-  const firstDay = dayKeys[0]
-  while (
-    eventIndex < events.length &&
-    events[eventIndex].dayKey &&
-    events[eventIndex].dayKey < firstDay
-  ) {
-    applyEventToState(state, events[eventIndex])
-    eventIndex += 1
-  }
-
-  let prev = stateTotals(state)
-  const dailySteps = []
-  const dailyMvpa = []
-  const accumulatedSteps = []
-  const accumulatedMvpa = []
-
-  for (const dayKey of dayKeys) {
-    while (eventIndex < events.length && events[eventIndex].dayKey === dayKey) {
-      applyEventToState(state, events[eventIndex])
-      eventIndex += 1
-    }
-    const totals = stateTotals(state)
-    dailySteps.push(Math.max(0, totals.steps - prev.steps))
-    dailyMvpa.push(Math.max(0, totals.mvpa - prev.mvpa))
-    accumulatedSteps.push(totals.steps)
-    accumulatedMvpa.push(totals.mvpa)
-    prev = totals
-  }
-
-  return { dailySteps, dailyMvpa, accumulatedSteps, accumulatedMvpa }
+  return weeks
 }
 
 /**
@@ -562,8 +434,8 @@ export function buildWeekStoryboard({
 }
 
 /**
- * All-time storyboard: every calendar day from first record through today (SGT).
- * period* = that day's logged totals; accumulated* = career running totals.
+ * All-time storyboard: every week from first record through current week.
+ * period* = that week's totals; accumulated* = career running totals.
  */
 export function buildAllTimeStoryboard({
   profiles,
@@ -572,11 +444,9 @@ export function buildAllTimeStoryboard({
   weekStart,
 }) {
   const currentWeek = normalizeWeekStart(weekStart)
-  const todayKey = getSgtDateKey(new Date().toISOString())
-  const firstDay = findEarliestDayKey(activities, rewards)
-  const dayKeys = firstDay ? listDaysInclusive(firstDay, todayKey) : []
+  const weeks = listWeeksThrough(activities, rewards, currentWeek)
 
-  if (!profiles.length || !dayKeys.length) {
+  if (!profiles.length || !weeks.length) {
     return {
       range: 'alltime',
       weekStart: currentWeek,
@@ -586,8 +456,8 @@ export function buildAllTimeStoryboard({
       periodMvpa: [],
       accumulatedSteps: [],
       accumulatedMvpa: [],
-      firstDay: null,
-      lastDay: null,
+      firstWeek: null,
+      lastWeek: null,
     }
   }
 
@@ -606,7 +476,6 @@ export function buildAllTimeStoryboard({
         key: profile.display_name,
         totalSteps: allTime.total_steps,
         totalMvpa: allTime.total_mvpa,
-        series: buildUserDailyAllTimeSeries(profile.id, dayKeys, activities, rewards),
       }
     })
     .sort(
@@ -616,44 +485,53 @@ export function buildAllTimeStoryboard({
         a.displayName.localeCompare(b.displayName)
     )
 
-  const pointLabels = dayKeys.map((dayKey) => formatDayAxisLabel(dayKey))
+  const running = Object.fromEntries(
+    playerMeta.map((player) => [player.key, { steps: 0, mvpa: 0 }])
+  )
+
   const periodSteps = []
   const periodMvpa = []
   const accumulatedSteps = []
   const accumulatedMvpa = []
+  const pointLabels = []
 
-  dayKeys.forEach((dayKey, dayIndex) => {
-    const label = pointLabels[dayIndex]
-    const periodStepPoint = { name: label, dayKey }
-    const periodMvpaPoint = { name: label, dayKey }
-    const accStepPoint = { name: label, dayKey }
-    const accMvpaPoint = { name: label, dayKey }
+  for (const week of weeks) {
+    const label = formatWeekAxisLabel(week)
+    pointLabels.push(label)
+
+    const periodStepPoint = { name: label, weekStart: week }
+    const periodMvpaPoint = { name: label, weekStart: week }
+    const accStepPoint = { name: label, weekStart: week }
+    const accMvpaPoint = { name: label, weekStart: week }
 
     for (const player of playerMeta) {
-      periodStepPoint[player.key] = player.series.dailySteps[dayIndex] ?? 0
-      periodMvpaPoint[player.key] = player.series.dailyMvpa[dayIndex] ?? 0
-      accStepPoint[player.key] = player.series.accumulatedSteps[dayIndex] ?? 0
-      accMvpaPoint[player.key] = player.series.accumulatedMvpa[dayIndex] ?? 0
+      const weekStats = buildUserChallengeStats({
+        userId: player.userId,
+        displayName: player.displayName,
+        weekStart: week,
+        activities,
+        rewards,
+      })
+      periodStepPoint[player.key] = weekStats.total_steps
+      periodMvpaPoint[player.key] = weekStats.total_mvpa
+      running[player.key].steps += weekStats.total_steps
+      running[player.key].mvpa += weekStats.total_mvpa
+      accStepPoint[player.key] = running[player.key].steps
+      accMvpaPoint[player.key] = running[player.key].mvpa
     }
 
     periodSteps.push(periodStepPoint)
     periodMvpa.push(periodMvpaPoint)
     accumulatedSteps.push(accStepPoint)
     accumulatedMvpa.push(accMvpaPoint)
-  })
+  }
 
   return {
     range: 'alltime',
     weekStart: currentWeek,
-    firstDay: dayKeys[0],
-    lastDay: dayKeys[dayKeys.length - 1],
-    players: playerMeta.map(({ userId, displayName, key, totalSteps, totalMvpa }) => ({
-      userId,
-      displayName,
-      key,
-      totalSteps,
-      totalMvpa,
-    })),
+    firstWeek: weeks[0],
+    lastWeek: weeks[weeks.length - 1],
+    players: playerMeta,
     pointLabels,
     periodSteps,
     periodMvpa,

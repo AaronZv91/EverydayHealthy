@@ -20,7 +20,7 @@ const PLAYER_COLORS = [
 
 /** Seconds to travel one segment (day or week). */
 const SEGMENT_SECONDS = 1.15
-const ALLTIME_SEGMENT_SECONDS = 0.55
+const ALLTIME_SEGMENT_SECONDS = 1.0
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
@@ -410,17 +410,21 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
   if (!open) return null
 
   const isAllTime = range === 'alltime'
-  const periodLabel = 'Daily logged'
+  const periodLabel = isAllTime ? 'Weekly totals' : 'Daily logged'
   const accumulatedLabel = isAllTime ? 'Career accumulated' : 'Week accumulated'
   const stepsTitle =
     metric === 'period'
-      ? 'Steps logged per day'
+      ? isAllTime
+        ? 'Steps per week'
+        : 'Steps logged per day'
       : isAllTime
         ? 'Steps career total'
         : 'Steps accumulated'
   const mvpaTitle =
     metric === 'period'
-      ? 'MVPA logged per day'
+      ? isAllTime
+        ? 'MVPA per week'
+        : 'MVPA logged per day'
       : isAllTime
         ? 'MVPA career total'
         : 'MVPA accumulated'
@@ -441,7 +445,7 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
           </h1>
           <p className="text-xs text-slate-500">
             {isAllTime
-              ? `${storyboard.pointLabels.length} days · first record → today`
+              ? `${storyboard.pointLabels.length} weeks · first record → now`
               : formatWeekRange()}{' '}
             · <span className="font-medium text-cyan-300">{currentLabel}</span> · {pctComplete}%
             {finished ? ' · finished' : ''} · ← → · P · R
