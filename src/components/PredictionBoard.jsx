@@ -125,13 +125,13 @@ export default function PredictionBoard({
 }) {
   const title = empathyMode
     ? 'Gentle Outlook · Recap & Next Week'
-    : 'War Briefing · Recap & Next Week'
+    : 'Do or Die · Recap & Next Week'
 
   if (loading) {
     return (
       <PredictionLoadingState
         title={title}
-        message={empathyMode ? 'Preparing a gentle outlook…' : 'Preparing the war briefing…'}
+        message={empathyMode ? 'Preparing a gentle outlook…' : 'Preparing do-or-die orders…'}
         empathyMode={empathyMode}
       />
     )
@@ -144,7 +144,7 @@ export default function PredictionBoard({
         message={
           empathyMode
             ? 'Crafting warm encouragement… please wait'
-            : 'Gemini drafting discipline orders… please wait'
+            : 'Gemini drafting do-or-die orders… please wait'
         }
         empathyMode={empathyMode}
       />
@@ -193,12 +193,12 @@ export default function PredictionBoard({
           <p className="mt-0.5 text-sm text-slate-400">
             {empathyMode
               ? 'Warm recap of last week · gentle outlook ahead'
-              : 'Last week judged · next week is war · ego at stake'}
+              : 'Family · children · ego · loved ones · do or die'}
           </p>
         </div>
         {predictions.aiGenerated ? (
           <span className="shrink-0 text-xs text-slate-500">
-            {empathyMode ? 'Gemini · Gentle' : 'Gemini · Discipline'}
+            {empathyMode ? 'Gemini · Gentle' : 'Gemini · Do or Die'}
           </span>
         ) : predictions.aiCopyFallback ? (
           <span className="shrink-0 text-xs text-slate-500">Offline summary</span>

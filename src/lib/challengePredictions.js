@@ -417,7 +417,7 @@ function buildFallbackRecap(lastWeek, empathyMode = false) {
   if (!lastWeek) {
     return empathyMode
       ? 'No last week to recap yet — your journey begins whenever you are ready.'
-      : 'No last week on record — the war for self-esteem has not begun.'
+      : 'No last week on record — the do-or-die test for your ego and loved ones has not begun.'
   }
 
   const pct = Math.round(lastWeek.combinedPct * 100)
@@ -433,10 +433,10 @@ function buildFallbackRecap(lastWeek, empathyMode = false) {
   }
 
   if (lastWeek.completedGoals) {
-    return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} · ${pct}% · both goals held${titleBit}. Honour survived.`
+    return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} · ${pct}% · both goals held${titleBit}. You kept your word to yourself and those who love you.`
   }
 
-  return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} · ${pct}% of goals${titleBit}. The unfinished target already taxed your pride.`
+  return `Last week (${lastWeek.week.slice(5)}): rank #${lastWeek.rank} · ${pct}% of goals${titleBit}. That unfinished target already failed the people who count on you.`
 }
 
 function formatLastWeekLine(lastWeek) {
@@ -583,18 +583,18 @@ function buildFirstCompleterReason(candidate, hasHistory, empathyMode = false) {
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
       isActiveThisWeek
-        ? `Holding the front this week with ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA min — discipline still stands.`
-        : 'No clear front-runner yet. Pride waits for whoever claims the first finish.',
+        ? `Holding the front this week with ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA min — still someone family can trust.`
+        : 'No clear front-runner yet. The first finish will decide whose word still means something.',
       currentCombinedPct > 0
-        ? `${Math.round(currentCombinedPct * 100)}% toward both goals — protect that lead or watch self-esteem thin.`
+        ? `${Math.round(currentCombinedPct * 100)}% toward both goals — protect that lead or fail the ones who love you.`
         : null,
     ])
   }
 
   return buildReason([
     history.firstCompleterWeeks > 0
-      ? `Finished first ${history.firstCompleterWeeks} time(s) before — that honour must be defended.`
-      : 'Strong weekly pace and completion history keep pride intact.',
+      ? `Finished first ${history.firstCompleterWeeks} time(s) before — that honour is what your children and loved ones measure you by.`
+      : 'Strong weekly pace and completion history still defend family honour.',
     history.completionWeeks > 0
       ? `Hit both goals in ${history.completionWeeks} past week(s).`
       : null,
@@ -624,8 +624,8 @@ function buildLastPlaceReason(candidate, hasHistory, empathyMode = false) {
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
       isActiveThisWeek
-        ? `Lowest combined progress this week (${Math.round(currentCombinedPct * 100)}% of goals) — ego is already under fire.`
-        : 'No activity logged this week yet. Silence is a quiet surrender of standing.',
+        ? `Lowest combined progress this week (${Math.round(currentCombinedPct * 100)}% of goals) — your ego and your family's respect are already bleeding.`
+        : 'No activity logged this week yet. Silence is how loved ones learn not to count on you.',
       isActiveThisWeek
         ? `This week: ${formatCount(currentTotalSteps)} steps and ${formatCount(currentTotalMvpa)} MVPA min.`
         : null,
@@ -634,14 +634,14 @@ function buildLastPlaceReason(candidate, hasHistory, empathyMode = false) {
 
   return buildReason([
     history.lastPlaceWeeks > 0
-      ? `Finished last ${history.lastPlaceWeeks} time(s) before — another miss and self-esteem vanishes with the target.`
-      : 'Lowest typical weekly output in past weeks. Pride cannot survive another unfinished war.',
+      ? `Finished last ${history.lastPlaceWeeks} time(s) before — another miss and you fail your children, your ego, and everyone who loves you.`
+      : 'Lowest typical weekly output in past weeks. Another unfinished target is a betrayal of family honour.',
     `Historically averages ${formatCount(history.avgTotalSteps)} steps and ${formatCount(history.avgTotalMvpa)} MVPA min per week.`,
     history.trend?.label ? `Trend: ${history.trend.label}.` : null,
     isActiveThisWeek
       ? `This week so far: ${formatCount(currentTotalSteps)} steps, ${formatCount(currentTotalMvpa)} MVPA min.`
       : 'No activity yet this week.',
-    history.avgActivityCount < 1 ? 'Logs less often than others — resolve is thinning.' : null,
+    history.avgActivityCount < 1 ? 'Logs less often than others — resolve is thinning before those who depend on you.' : null,
   ])
 }
 
@@ -662,16 +662,16 @@ function buildBeggarReason(candidate, hasHistory, empathyMode = false) {
   if (!hasHistory || history.weeksSeen === 0) {
     return buildReason([
       currentReceivedPct > 0
-        ? `Receiving the most donations this week (${Math.round(currentReceivedPct * 100)}% of goals) — borrowed progress cannot buy honour.`
-        : 'Most likely to lean on donated quota. Self-esteem demands earnings, not handouts.',
-      isActiveThisWeek ? null : 'Has not logged self activity this week — that debt compounds.',
+        ? `Receiving the most donations this week (${Math.round(currentReceivedPct * 100)}% of goals) — borrowed progress cannot buy the respect of those who love you.`
+        : 'Most likely to lean on donated quota. Family honour demands earnings, not handouts.',
+      isActiveThisWeek ? null : 'Has not logged self activity this week — that debt compounds against ego and loved ones.',
     ])
   }
 
   return buildReason([
     history.beggarWeeks > 0
-      ? `Was Beggar ${history.beggarWeeks} time(s) before — repeated dependence erodes pride.`
-      : 'Receives the highest share of donated quota. Honour requires earning the target.',
+      ? `Was Beggar ${history.beggarWeeks} time(s) before — repeated dependence empties the pride your family needs from you.`
+      : 'Receives the highest share of donated quota. Honour before loved ones requires earning the target.',
     history.avgRewardsReceived > 0
       ? `Averages ${history.avgRewardsReceived.toFixed(1)} rewards received per week.`
       : null,
@@ -794,29 +794,29 @@ function buildPlayerPrediction(candidate, ctx) {
       outlook = `This week is still open, and you are enough exactly as you are. Please take rest whenever you need it — your wellbeing comes first.${trendNote}`
     }
   } else if (!isActiveThisWeek) {
-    outlook = `No activity this week.${trendNote} In this war, absence is surrender — next week your self-esteem will not survive another silent board.`
+    outlook = `No activity this week.${trendNote} Do or die: another silent board and you fail your ego, your family, and the ones who love you.`
   } else if (isFirstPick && pct >= 100) {
-    outlook = `Already at ${pct}% of both goals.${trendNote} Discipline still stands — protect that honour by finishing first again next week.`
+    outlook = `Already at ${pct}% of both goals.${trendNote} Keep finishing first — that is the standard your children and loved ones can still believe.`
   } else if (isFirstPick) {
-    outlook = `Leading the first-to-finish forecast at ${pct}%.${trendNote} This is the line between pride and collapse — hold it until both goals fall.`
+    outlook = `Leading the first-to-finish forecast at ${pct}%.${trendNote} Hold the line until both goals fall, or watch family honour collapse with you.`
   } else if (isLastPick && pct >= 100) {
-    outlook = `Goals met this week (${pct}%) but lowest relative output.${trendNote} Meeting the floor is not victory; next week must prove your ego still has weight.`
+    outlook = `Goals met this week (${pct}%) but lowest relative output.${trendNote} The floor is not enough — next week must prove you still deserve their respect.`
   } else if (isLastPick) {
-    outlook = `Lowest combined progress at ${pct}%.${trendNote} Finish last again and self-esteem vanishes with the unfinished target.`
+    outlook = `Lowest combined progress at ${pct}%.${trendNote} Finish last again and you fail your children, your ego, and everyone who loves you.`
   } else if (isBeggarPick) {
-    outlook = `Highest donation-receipt forecast (${recvPct}% of goals from rewards).${trendNote} Borrowed progress cannot buy honour — earn the target or lose the self that asked for it.`
+    outlook = `Highest donation-receipt forecast (${recvPct}% of goals from rewards).${trendNote} Borrowed progress cannot buy family honour — earn the target or lose the self they trusted.`
   } else if (isLeader && pct >= 100) {
-    outlook = `#${rank} on the board with both goals done.${trendNote} Leadership is a duty now — defend that rank next week or concede your pride.`
+    outlook = `#${rank} on the board with both goals done.${trendNote} Leadership is duty to those who depend on you — defend it next week or concede your pride.`
   } else if (isLeader) {
-    outlook = `#${rank} this week at ${pct}% of goals.${trendNote} The front line is yours — finish the target or watch your standing dissolve.`
+    outlook = `#${rank} this week at ${pct}% of goals.${trendNote} The front line is yours — finish the target or let your loved ones watch your standing dissolve.`
   } else if (pct >= 100) {
-    outlook = `Both goals cleared (${pct}%).${trendNote} Honour held this week — repeat it next week or the victory becomes a rumour.`
+    outlook = `Both goals cleared (${pct}%).${trendNote} You kept faith with family honour — repeat it next week or that faith dies.`
   } else if (pct >= 50) {
-    outlook = `${pct}% toward goals.${trendNote} Halfway is not safety. Close the war next week before pride runs out.`
+    outlook = `${pct}% toward goals.${trendNote} Halfway is not safety. Close this do-or-die week before pride and their trust run out.`
   } else if (pct > 0) {
-    outlook = `${pct}% progress so far.${trendNote} This pace is a quiet retreat — raise it next week or surrender your self-respect with the missed target.`
+    outlook = `${pct}% progress so far.${trendNote} This pace is a quiet retreat — raise it next week or surrender your ego and your family's respect with the missed target.`
   } else {
-    outlook = `Minimal progress recorded.${trendNote} Next week is the last defence of ego — meet the target or it disappears.`
+    outlook = `Minimal progress recorded.${trendNote} Next week is do or die — meet the target or lose ego, family honour, and the trust of those who love you.`
   }
 
   const trendMomentum = history.trend?.momentum ?? 0
@@ -1153,19 +1153,19 @@ export function buildChallengePredictions({
           : 'Forecasts are based on this week only — please move at the pace that feels right for you.',
       ]
     : [
-        `${activeThisWeek}/${profiles.length} players are on the field this week.`,
-        `Group stands at ${groupGoal.groupCombinedPct}% of the combined target (${formatCount(groupGoal.totalStepsLogged)}/${formatCount(groupGoal.totalStepGoal)} steps, ${groupGoal.groupMvpaPct}% MVPA). Miss it and collective pride goes with it.`,
+        `${activeThisWeek}/${profiles.length} players are in a do-or-die week.`,
+        `Group stands at ${groupGoal.groupCombinedPct}% of the combined target (${formatCount(groupGoal.totalStepsLogged)}/${formatCount(groupGoal.totalStepGoal)} steps, ${groupGoal.groupMvpaPct}% MVPA). Miss it and ego, family honour, and loved ones' trust go with it.`,
         completedThisWeek > 0
-          ? `${completedThisWeek} have already secured both goals — the rest still fight for their self-esteem.`
-          : 'No one has finished both goals yet. Until they fall, every ego remains exposed.',
+          ? `${completedThisWeek} have already secured both goals — the rest still fight for the respect of those who depend on them.`
+          : 'No one has finished both goals yet. Until they fall, every ego and every family standard remains exposed.',
         leader && (leader.total_steps ?? 0) > 0
-          ? `${leader.display_name} holds the front with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps — that lead is a duty, not a trophy.`
+          ? `${leader.display_name} holds the front with ${Math.round((leader.total_steps ?? 0) / 1000)}k steps — that lead is duty to family, not a trophy.`
           : weekIsEmpty && hasHistory
-            ? 'No activity this week yet — silence is already a loss of standing.'
+            ? 'No activity this week yet — silence is already a failure before those who love you.'
             : null,
         hasHistory
-          ? `Forecasts blend ${historyWeeks.length} past week(s) (30%) with this week's pace (70%). Treat them as orders, not comfort.`
-          : 'Forecasts rely mostly on this week. History will not forgive a missed target.',
+          ? `Forecasts blend ${historyWeeks.length} past week(s) (30%) with this week's pace (70%). Treat them as orders. This is do or die.`
+          : 'Forecasts rely mostly on this week. A missed target will not be forgiven by your ego or your loved ones.',
       ]
 
   return {
