@@ -38,24 +38,38 @@ function sampleSeries(series, playerKey, progress) {
   return a + (b - a) * frac
 }
 
-function computeYMax(series, players) {
+function computeVisibleYMax(series, players, progress) {
+  if (!series.length || !players.length) return 1
+  const maxIndex = series.length - 1
+  const drawProgress = Math.max(0, Math.min(progress, maxIndex))
   let max = 0
-  for (const point of series) {
+  const samples = Math.max(8, Math.ceil(drawProgress * 12) + 1)
+  for (let s = 0; s <= samples; s += 1) {
+    const t = samples === 0 ? 0 : (s / samples) * drawProgress
     for (const player of players) {
-      max = Math.max(max, Number(point[player.key]) || 0)
+      max = Math.max(max, sampleSeries(series, player.key, t))
     }
   }
-  return Math.max(max, 1)
+  // Also include integer points already passed for stability
+  const lastInt = Math.floor(drawProgress)
+  for (let i = 0; i <= lastInt; i += 1) {
+    for (const player of players) {
+      max = Math.max(max, Number(series[i]?.[player.key]) || 0)
+    }
+  }
+  return Math.max(max * 1.18, 1)
 }
 
 /**
- * HTML5 Canvas multi-player line chart with continuous draw animation.
- * `progress` is a float from 0 .. (n-1) shared across charts.
+ * HTML5 Canvas multi-player line chart.
+ * X/Y axes grow with progress so the latest values stay readable on the right edge.
  */
-function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress, yMax }) {
+function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress }) {
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
+  const displayYMaxRef = useRef(1)
   const [hover, setHover] = useState(null)
+  const layoutRef = useRef({ xDomainMax: 1, maxIndex: 1 })
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -74,13 +88,26 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
       const ctx = canvas.getContext('2d')
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-      const pad = { top: 18, right: 16, bottom: 36, left: 52 }
-      const plotW = cssWidth - pad.left - pad.right
-      const plotH = cssHeight - pad.top - pad.bottom
+      const pad = { top: 22, right: 72, bottom: 36, left: 52 }
+      const plotW = Math.max(40, cssWidth - pad.left - pad.right)
+      const plotH = Math.max(40, cssHeight - pad.top - pad.bottom)
       const maxIndex = Math.max(series.length - 1, 1)
-      const yCeiling = Math.max(yMax, 1)
+      const drawProgress = Math.max(0, Math.min(progress, maxIndex))
 
-      const xAt = (index) => pad.left + (index / maxIndex) * plotW
+      // Growing X domain: latest point stays at the right edge while history expands leftward.
+      const minSpan = Math.min(maxIndex, Math.max(1.25, maxIndex * 0.12))
+      const xDomainMax = Math.max(drawProgress, minSpan, 0.001)
+
+      const targetYMax = computeVisibleYMax(series, players, drawProgress)
+      if (drawProgress < 0.05) displayYMaxRef.current = targetYMax
+      const currentY = displayYMaxRef.current || targetYMax
+      const nextY = currentY + (targetYMax - currentY) * 0.18
+      displayYMaxRef.current = Math.max(nextY, targetYMax * 0.92, 1)
+      const yCeiling = displayYMaxRef.current
+
+      layoutRef.current = { xDomainMax, maxIndex }
+
+      const xAt = (index) => pad.left + (index / xDomainMax) * plotW
       const yAt = (value) => pad.top + plotH - (value / yCeiling) * plotH
 
       ctx.clearRect(0, 0, cssWidth, cssHeight)
@@ -105,17 +132,21 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         ctx.fillText(formatNumber(tick), pad.left - 8, y)
       }
 
-      const labelStep = Math.max(1, Math.ceil(series.length / 8))
+      // X labels only within the visible growing window
+      const visibleEnd = Math.min(maxIndex, Math.ceil(xDomainMax))
+      const labelStep = Math.max(1, Math.ceil((visibleEnd + 1) / 7))
       ctx.fillStyle = '#64748b'
       ctx.font = '11px ui-sans-serif, system-ui, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
-      series.forEach((point, index) => {
-        if (index % labelStep !== 0 && index !== series.length - 1) return
-        ctx.fillText(String(point.name), xAt(index), pad.top + plotH + 10)
-      })
-
-      const drawProgress = Math.max(0, Math.min(progress, maxIndex))
+      for (let index = 0; index <= visibleEnd; index += 1) {
+        if (index % labelStep !== 0 && index !== Math.floor(drawProgress)) continue
+        const point = series[index]
+        if (!point) continue
+        const x = xAt(index)
+        if (x < pad.left - 4 || x > pad.left + plotW + 4) continue
+        ctx.fillText(String(point.name), x, pad.top + plotH + 10)
+      }
 
       for (const player of players) {
         const color = colorByKey.get(player.key)
@@ -129,7 +160,7 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         let started = false
         const steps = Math.max(24, Math.ceil(drawProgress * 24))
         for (let s = 0; s <= steps; s += 1) {
-          const t = (s / steps) * drawProgress
+          const t = steps === 0 ? 0 : (s / steps) * drawProgress
           const x = xAt(t)
           const y = yAt(sampleSeries(series, player.key, t))
           if (!started) {
@@ -143,6 +174,8 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         ctx.restore()
       }
 
+      const headValues = []
+
       for (const player of players) {
         const color = colorByKey.get(player.key)
         ctx.strokeStyle = color
@@ -153,7 +186,7 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         let started = false
         const steps = Math.max(32, Math.ceil(drawProgress * 32))
         for (let s = 0; s <= steps; s += 1) {
-          const t = (s / steps) * drawProgress
+          const t = steps === 0 ? 0 : (s / steps) * drawProgress
           const x = xAt(t)
           const y = yAt(sampleSeries(series, player.key, t))
           if (!started) {
@@ -165,8 +198,11 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         }
         ctx.stroke()
 
+        const value = sampleSeries(series, player.key, drawProgress)
         const headX = xAt(drawProgress)
-        const headY = yAt(sampleSeries(series, player.key, drawProgress))
+        const headY = yAt(value)
+        headValues.push({ player, color, value, headX, headY })
+
         ctx.beginPath()
         ctx.fillStyle = color
         ctx.arc(headX, headY, 4.5, 0, Math.PI * 2)
@@ -176,6 +212,40 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         ctx.arc(headX, headY, 1.8, 0, Math.PI * 2)
         ctx.fill()
       }
+
+      // Latest value callouts (sorted so denser stacks stay readable)
+      headValues
+        .sort((a, b) => a.headY - b.headY)
+        .forEach((row, index) => {
+          const label = formatNumber(Math.round(row.value))
+          ctx.font = 'bold 11px ui-sans-serif, system-ui, sans-serif'
+          const textW = ctx.measureText(label).width
+          const boxW = textW + 10
+          const boxH = 18
+          const x = Math.min(row.headX + 10, pad.left + plotW + 4)
+          const y = Math.min(
+            Math.max(pad.top + 2, row.headY - boxH / 2 + index * 0),
+            pad.top + plotH - boxH - 2
+          )
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)'
+          ctx.strokeStyle = row.color
+          ctx.lineWidth = 1.2
+          if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath()
+            ctx.roundRect(x, y, boxW, boxH, 6)
+            ctx.fill()
+            ctx.stroke()
+          } else {
+            ctx.fillRect(x, y, boxW, boxH)
+            ctx.strokeRect(x, y, boxW, boxH)
+          }
+
+          ctx.fillStyle = '#e2e8f0'
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(label, x + 5, y + boxH / 2)
+        })
 
       const playX = xAt(drawProgress)
       ctx.strokeStyle = 'rgba(34, 211, 238, 0.35)'
@@ -192,18 +262,19 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
     const observer = new ResizeObserver(draw)
     observer.observe(wrap)
     return () => observer.disconnect()
-  }, [series, players, colorByKey, progress, yMax])
+  }, [series, players, colorByKey, progress])
 
   function handlePointer(event) {
     const wrap = wrapRef.current
     if (!wrap || !series.length) return
     const rect = wrap.getBoundingClientRect()
     const padLeft = 52
-    const padRight = 16
+    const padRight = 72
     const plotW = rect.width - padLeft - padRight
     const x = event.clientX - rect.left - padLeft
-    const ratio = Math.max(0, Math.min(1, x / plotW))
-    const index = Math.round(ratio * (series.length - 1))
+    const ratio = Math.max(0, Math.min(1, x / Math.max(plotW, 1)))
+    const { xDomainMax, maxIndex } = layoutRef.current
+    const index = Math.round(Math.min(maxIndex, ratio * xDomainMax))
     const point = series[index]
     if (!point) {
       setHover(null)
@@ -216,14 +287,19 @@ function SmoothCanvasChart({ title, unit, series, players, colorByKey, progress,
         color: colorByKey.get(player.key),
       }))
       .sort((a, b) => b.value - a.value)
-    setHover({ label: point.name, rows, left: event.clientX - rect.left, top: event.clientY - rect.top })
+    setHover({
+      label: point.name,
+      rows,
+      left: event.clientX - rect.left,
+      top: event.clientY - rect.top,
+    })
   }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100 sm:text-base">{title}</h3>
-        <p className="text-xs text-slate-500">{unit}</p>
+        <p className="text-xs text-slate-500">{unit} · live axis</p>
       </div>
       <div
         ref={wrapRef}
@@ -303,9 +379,6 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
     metric === 'period' ? storyboard.periodSteps : storyboard.accumulatedSteps
   const mvpaSource =
     metric === 'period' ? storyboard.periodMvpa : storyboard.accumulatedMvpa
-
-  const stepsYMax = useMemo(() => computeYMax(stepsSource, players), [stepsSource, players])
-  const mvpaYMax = useMemo(() => computeYMax(mvpaSource, players), [mvpaSource, players])
 
   const currentIndex = Math.min(maxProgress, Math.round(progress))
   const currentLabel = storyboard.pointLabels[currentIndex] ?? '—'
@@ -545,7 +618,6 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
                 players={players}
                 colorByKey={colorByKey}
                 progress={progress}
-                yMax={stepsYMax}
               />
               <SmoothCanvasChart
                 title={mvpaTitle}
@@ -554,7 +626,6 @@ export default function WeekStoryboard({ open, onClose, challengeSource, initial
                 players={players}
                 colorByKey={colorByKey}
                 progress={progress}
-                yMax={mvpaYMax}
               />
             </div>
 
