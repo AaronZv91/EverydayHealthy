@@ -33,9 +33,9 @@ export default function AuthPage({ onSignIn, onSignUp }) {
       <div className="card w-full max-w-md">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl">
-            🏃
+            🔥
           </div>
-          <h1 className="text-2xl font-bold text-white">EverydayHealthy</h1>
+          <h1 className="text-2xl font-bold text-white">Everyday Hellthy</h1>
           <p className="mt-1 text-sm text-slate-400">119,000 steps · 400 min MVPA per week</p>
         </div>
 

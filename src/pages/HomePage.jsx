@@ -52,10 +52,10 @@ export default function HomePage({ user, onSignOut }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
             <span className="app-logo flex h-10 w-10 items-center justify-center rounded-xl text-lg">
-              {empathyMode ? '☁️' : '🏃'}
+              {empathyMode ? '☁️' : '🔥'}
             </span>
             <div>
-              <h1 className="text-lg font-bold text-white">EverydayHealthy</h1>
+              <h1 className="text-lg font-bold text-white">Everyday Hellthy</h1>
               <p className="text-xs text-slate-400">
                 {empathyMode ? 'Gentle encouragement · rest is welcome' : 'Health rewards · weekly goals'}
               </p>
