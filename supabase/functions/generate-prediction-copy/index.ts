@@ -212,7 +212,7 @@ Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.
 Group current state: ${weekContext.groupPaceLine}
 ${weekContext.paceSummary}
 Speak gently about groupCombinedPct (${weekContext.groupCombinedPct}%) and each player's individual pace. Encourage rest when someone seems behind or inactive — never shame.`
-    : 'Weekly goals: 112,000 steps + 400 MVPA minutes per player (SGT). Speak with warmth about group progress.'
+    : 'Weekly goals: 119,000 steps + 400 MVPA minutes per player (SGT). Speak with warmth about group progress.'
 
   return `You write short, deeply supportive prediction copy for a weekly fitness challenge app.
 
@@ -293,8 +293,8 @@ Group combined weekly goal (${weekContext.playerCount} players): ${weekContext.t
 Today: ${weekContext.weekday} (day ${weekContext.dayOfWeek} of 7, ${weekContext.daysRemaining} day(s) left, ${weekContext.weekProgressPct}% through the week).
 Group current state: ${weekContext.groupPaceLine}
 ${weekContext.paceSummary}
-For the group summary, use groupCombinedPct (${weekContext.groupCombinedPct}%) vs the combined target. For each player, use their individual % vs 112k/400 (see paceLine). Hold anyone behind linear pace to do-or-die account — the target is non-negotiable.`
-    : 'Weekly goals: 112,000 steps + 400 MVPA minutes per player (SGT). Group % = sum of all logs ÷ (players × individual goal).'
+For the group summary, use groupCombinedPct (${weekContext.groupCombinedPct}%) vs the combined target. For each player, use their individual % vs 119k/400 (see paceLine). Hold anyone behind linear pace to do-or-die account — the target is non-negotiable.`
+    : 'Weekly goals: 119,000 steps + 400 MVPA minutes per player (SGT). Group % = sum of all logs ÷ (players × individual goal).'
 
   return `You write short, extreme, do-or-die prediction copy for a weekly fitness challenge app.
 
@@ -319,8 +319,8 @@ The stats below are authoritative. Do NOT invent numbers or change who was picke
 For each player recap, judge their LAST completed week as a verdict on whether they upheld or failed the people who matter using lastWeekLine, history, notes, and rewards.
 For each player outlook, confront NEXT week as do-or-die using this week's pace, trend, and scores.
 ALWAYS anchor commentary to weekly goals, the current weekday, days remaining, and pace:
-- Group summary: combined % vs total group target (all players × 112k steps + 400 MVPA each)
-- Per player: individual % vs their own 112k/400 (see paceLine)
+- Group summary: combined % vs total group target (all players × 119k steps + 400 MVPA each)
+- Per player: individual % vs their own 119k/400 (see paceLine)
 Treat activity log notes as sworn statements — excuses betray the family standard; honest effort is the only honour left.
 Reference streaks/PBs from engagementLine as proof you still deserve their respect — or as evidence that respect is dying.
 Treat reward dependence as a moral debt against loved ones — receiving without earning empties the ego they trusted; giving without demand is duty. Use recentRewards and event logs (timestamps SGT) for serious commentary — late panic dumps, ghost weeks, donation reliance, abandoned MVPA.

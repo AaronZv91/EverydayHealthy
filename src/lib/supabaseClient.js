@@ -22,7 +22,7 @@ export const supabase = isSupabaseConfigured
   : null
 
 export const WEEKLY_GOALS = {
-  steps: 112_000,
+  steps: 119_000,
   mvpaMinutes: 400,
 }
 

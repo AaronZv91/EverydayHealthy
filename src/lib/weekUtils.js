@@ -38,7 +38,7 @@ const WEEKDAY_NAMES = [
   'Sunday',
 ]
 
-/** Where we are in the Mon–Sun SGT challenge week (for pace vs 112k / 400 MVPA targets). */
+/** Where we are in the Mon–Sun SGT challenge week (for pace vs 119k / 400 MVPA targets). */
 export function getWeekProgressContext(date = new Date()) {
   const weekdayIndex = getSgtWeekdayIndex(date)
   const daysElapsed = weekdayIndex + 1
